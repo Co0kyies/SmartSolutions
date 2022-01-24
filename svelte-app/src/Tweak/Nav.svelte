@@ -10,6 +10,7 @@
         class="active"
         on:click={() => {
           $tweakSelectedOption = option;
+          console.log($tweakSelectedOption);
         }}
       >
         <span>{i + 1}. {option}</span>
@@ -18,6 +19,7 @@
       <div
         on:click={() => {
           $tweakSelectedOption = option;
+          console.log($tweakSelectedOption);
         }}
       >
         <span>{i + 1}. {option}</span>

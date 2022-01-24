@@ -66,6 +66,9 @@
     <Header on:userSignOut={userSignOut} />
     <Catalog />
     <Footer />
+    <!-- <Header on:userSignOut={userSignOut} />
+    <Tweak />
+    <Footer /> -->
   </Route>
 
   <Route path="tweak">
