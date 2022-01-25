@@ -1,11 +1,16 @@
 <script>
   export let menu;
   import { Icon, Button } from "sveltestrap";
-  import { auth, database } from "./firebase";
-  import { signInWithEmailAndPassword } from "firebase/auth";
+  import { auth, database, writeToDatabase } from "./firebase";
+  import {
+    signInWithEmailAndPassword,
+    createUserWithEmailAndPassword,
+  } from "firebase/auth";
   import { ref, onValue } from "firebase/database";
   import { user, authUser } from "./store";
+  import {} from "./firebase";
 
+  let errorMessage;
   let conditions = {
     login: {
       text: "Вход",
@@ -13,18 +18,42 @@
         signInWithEmailAndPassword(auth, email, password)
           .then((userCredential) => {
             // Signed in
-            debugger;
             // Simulate an HTTP redirect:
             window.location.replace("/");
             // ...
           })
           .catch((error) => {
-            const errorCode = error.code;
-            const errorMessage = error.message;
+            errorMessage = error.message;
           });
       },
     },
-    register: { text: "Регистрация", func: function () {} },
+    register: {
+      text: "Регистрация",
+      func: function register(auth, email, password) {
+        createUserWithEmailAndPassword(auth, email, password)
+          .then((userCredential) => {
+            // Signed in
+            const user = userCredential.user;
+            console.log(user);
+
+            let valueObj = {
+              email: email,
+              totalCount: 0,
+              totalPrice: 0,
+            };
+
+            writeToDatabase("/website/" + user.uid + "/", valueObj);
+            window.location.replace("/");
+
+            // ...
+          })
+
+          .catch((error) => {
+            errorMessage = error.message;
+            // ..
+          });
+      },
+    },
   };
 
   let email;
@@ -41,12 +70,6 @@
     <Icon name="person-circle" />
   </div>
   <h1>{conditions[menu].text}</h1>
-  <!-- {#if menu == "register"}
-    <div>
-      <h2>Име:</h2>
-      <input bind:value={userName} type="text" />
-    </div>
-  {/if} -->
   <div>
     <h2>Е-Мейл:</h2>
     <input bind:value={email} type="text" />
@@ -55,17 +78,22 @@
     <h2>Парола:</h2>
     <input bind:value={password} type="text" />
   </div>
-  {#if menu == "login"}
-    <a href="/register">Регистрация</a>
-  {:else}
-    <a href="/login"> Вход</a>
+
+  {#if errorMessage}
+    <div class="error">{errorMessage}</div>
   {/if}
   <Button
     color="danger"
     class="mt-3"
-    on:click={conditions.login.func(auth, email, password)}
+    on:click={conditions[menu].func(auth, email, password)}
     >{conditions[menu].text}</Button
   >
+  {#if menu == "login"}
+    <a href="/register">Регистрация</a>
+  {:else}
+    <span>Вече имате имате профил?</span>
+    <a href="/login"> Вход</a>
+  {/if}
 </main>
 
 <style>
@@ -93,8 +121,15 @@
   main h1 {
     position: relative;
   }
+  main span {
+    display: inline-block;
+  }
   main a {
-    position: relative;
-    transform: translateX(-50%);
+    display: inline-block;
+    /* position: relative;
+    transform: translateX(-50%); */
+  }
+  .error {
+    color: red;
   }
 </style>

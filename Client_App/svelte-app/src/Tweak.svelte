@@ -1,8 +1,15 @@
 <script>
-  import { tweak, tweakSelectedOption } from "./store";
+  import {
+    tweak,
+    tweakSelectedOption,
+    tweakSelectedCount,
+    tweakSelectedDepth,
+    tweakSelectedHeight,
+    tweakSelectedWidth,
+  } from "./store";
   import Nav from "./Tweak/Nav.svelte";
   import SizesMenu from "./Tweak/SizesMenu.svelte";
-  let model = $tweak;
+  import { onDestroy } from "svelte";
 
   let options = [
     "Размери",
@@ -19,18 +26,27 @@
     { number: "H1401ST22", desc: "Cascina Pine" },
     { number: "U960ST9", desc: "Onyx Grey" },
   ];
+
+  onDestroy(() => {
+    $tweakSelectedWidth = undefined;
+    $tweakSelectedHeight = undefined;
+    $tweakSelectedDepth = undefined;
+    $tweakSelectedCount = undefined;
+  });
 </script>
 
 <main>
-  <div id="pic" />
+  <div id="pic">
+    <img src="./img/ED_{$tweak}doors.jpg" alt="" />
+  </div>
   <div id="config">
     <Nav />
     <div class="padding-box">
       <h2>
-        {#if model == 1}
+        {#if $tweak == 1}
           Гардероб с 1 врата
         {:else}
-          Гардероб с {model} врати
+          Гардероб с {$tweak} врати
         {/if}
       </h2>
       {#if $tweakSelectedOption == options[0]}
@@ -50,6 +66,13 @@
   #pic {
     background-color: blue;
     position: relative;
+  }
+  img {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
   }
   #config {
     position: relative;

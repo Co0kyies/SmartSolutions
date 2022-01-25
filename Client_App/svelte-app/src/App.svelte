@@ -17,26 +17,19 @@
 
   let defalutUserObj = {
     email: "Зареждане...",
-    currentlyTweaking: {
-      depth: undefined,
-      firstDoor: undefined,
-      height: undefined,
-      mainColor: undefined,
-      model: undefined,
-      secondDoor: undefined,
-      width: undefined,
-    },
+    totalCount: 0,
+    totalPrice: 0,
   };
   $user = defalutUserObj;
 
-  onAuthStateChanged(auth, (user) => {
-    if (user) {
-      console.log(user.uid);
-      startListeningToRealTimeDB(database, user.uid);
-      $userId = user.uid;
+  onAuthStateChanged(auth, (userA) => {
+    if (userA) {
+      console.log(userA.uid);
+      startListeningToRealTimeDB(database, userA.uid);
+      $userId = userA.uid;
       $authUser = 1;
     } else {
-      console.log("Signed Out");
+      $user = defalutUserObj;
     }
   });
 
@@ -66,9 +59,6 @@
     <Header on:userSignOut={userSignOut} />
     <Catalog />
     <Footer />
-    <!-- <Header on:userSignOut={userSignOut} />
-    <Tweak />
-    <Footer /> -->
   </Route>
 
   <Route path="tweak">
@@ -86,4 +76,3 @@
     <h1>SHOPPING CART</h1>
   </Route>
 </Route>
-<div class="test" />

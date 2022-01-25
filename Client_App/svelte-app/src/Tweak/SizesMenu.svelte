@@ -6,7 +6,6 @@
     tweakSelectedHeight,
     tweakSelectedCount,
   } from "../store";
-
   let heightArray = [];
   let widthArray = [];
   let dephtArray = [];
