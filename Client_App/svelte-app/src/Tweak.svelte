@@ -9,6 +9,7 @@
   } from "./store";
   import Nav from "./Tweak/Nav.svelte";
   import SizesMenu from "./Tweak/SizesMenu.svelte";
+  import SelectDecorsMenu from "./Tweak/SelectDecorsMenu.svelte";
   import { onDestroy } from "svelte";
 
   let options = [
@@ -16,15 +17,6 @@
     "Декори",
     "Прилагане на Декори",
     "Финилизиране на поръчката",
-  ];
-
-  let firstDecor;
-  let secondDecor;
-
-  let decors = [
-    { number: "H3331", desc: "Nebraska Oak" },
-    { number: "H1401ST22", desc: "Cascina Pine" },
-    { number: "U960ST9", desc: "Onyx Grey" },
   ];
 
   onDestroy(() => {
@@ -51,6 +43,8 @@
       </h2>
       {#if $tweakSelectedOption == options[0]}
         <SizesMenu />
+      {:else if $tweakSelectedOption == options[1]}
+        <SelectDecorsMenu />
       {/if}
     </div>
   </div>
