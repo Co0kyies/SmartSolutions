@@ -1,5 +1,7 @@
 <script>
-  import SubMenu from "./SubMenu.svelte";
+  import { tweakFitstDecor } from "../store";
+  import SubMenu from "./SelectDecorsMenu/SubMenu.svelte";
+  import { Card } from "sveltestrap";
   let decors = [
     { number: "H3331", desc: "Nebraska Oak" },
     { number: "H1401ST22", desc: "Cascina Pine" },
@@ -7,25 +9,15 @@
   ];
 </script>
 
-<!-- {#each options as option, i}
-{#if $tweakSelectedOption == option}
-  <div
-    class="active"
-    on:click={() => {
-      $tweakSelectedOption = option;
-      console.log($tweakSelectedOption);
-    }}
-  >
-    <span>{i + 1}. {option}</span>
-  </div>
-{:else}
-  <div
-    on:click={() => {
-      $tweakSelectedOption = option;
-      console.log($tweakSelectedOption);
-    }}
-  >
-    <span>{i + 1}. {option}</span>
-  </div>
-{/if}
-{/each} -->
+<div class="main">
+  <Card body color="info" class="mb-3"
+    ><SubMenu title="Изберете първи декор" decorNumber={1} />
+    <SubMenu title="Изберете втори декор" decorNumber={2} />
+  </Card>
+</div>
+
+<style>
+  .main {
+    max-height: calc(100% - 8rem);
+  }
+</style>

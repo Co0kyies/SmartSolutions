@@ -57,13 +57,13 @@
 <Route>
   <Route path="/">
     <Header on:userSignOut={userSignOut} />
-    <Catalog />
+    <Tweak />
+    <!-- <Catalog /> -->
     <Footer />
   </Route>
 
   <Route path="tweak">
     <Header on:userSignOut={userSignOut} />
-    <Tweak />
     <Footer />
   </Route>
   <Route path="/login">
