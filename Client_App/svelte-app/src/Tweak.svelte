@@ -6,6 +6,8 @@
     tweakSelectedDepth,
     tweakSelectedHeight,
     tweakSelectedWidth,
+    tweakFitstDecor,
+    tweakSecondDecor,
   } from "./store";
   import Nav from "./Tweak/Nav.svelte";
   import SizesMenu from "./Tweak/SizesMenu.svelte";
@@ -24,6 +26,8 @@
     $tweakSelectedHeight = undefined;
     $tweakSelectedDepth = undefined;
     $tweakSelectedCount = undefined;
+    $tweakFitstDecor = "H1401";
+    $tweakSecondDecor = "U960ST9";
   });
 </script>
 
@@ -41,12 +45,13 @@
           Гардероб с {$tweak} врати
         {/if}
       </h2>
-
-      {#if $tweakSelectedOption == options[0]}
-        <SizesMenu />
-      {:else if $tweakSelectedOption == options[1]}
-        <SelectDecorsMenu />
-      {/if}
+      <div class="option-menu">
+        {#if $tweakSelectedOption == options[0]}
+          <SizesMenu />
+        {:else if $tweakSelectedOption == options[1]}
+          <SelectDecorsMenu />
+        {/if}
+      </div>
     </div>
   </div>
 </main>
@@ -54,7 +59,7 @@
 <style>
   main {
     width: 100%;
-    height: calc(100% - 8rem);
+    max-height: calc(100% - 8rem);
     display: grid;
     grid-template-columns: 4fr 5fr;
   }
@@ -76,8 +81,10 @@
   }
   #config .padding-box {
     padding: 1rem 3rem;
-    /* max-width: 100%; */
-    max-height: calc(100% - 6rem);
+    max-width: 100%;
     overflow-y: scroll;
+  }
+  #config .padding-box .option-menu {
+    background-color: red;
   }
 </style>
