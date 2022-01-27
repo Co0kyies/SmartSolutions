@@ -41,13 +41,12 @@
           Гардероб с {$tweak} врати
         {/if}
       </h2>
-      <div class="option-menu">
-        {#if $tweakSelectedOption == options[0]}
-          <SizesMenu />
-        {:else if $tweakSelectedOption == options[1]}
-          <SelectDecorsMenu />
-        {/if}
-      </div>
+
+      {#if $tweakSelectedOption == options[0]}
+        <SizesMenu />
+      {:else if $tweakSelectedOption == options[1]}
+        <SelectDecorsMenu />
+      {/if}
     </div>
   </div>
 </main>
@@ -55,7 +54,7 @@
 <style>
   main {
     width: 100%;
-    max-height: calc(100% - 8rem);
+    height: calc(100% - 8rem);
     display: grid;
     grid-template-columns: 4fr 5fr;
   }
@@ -77,10 +76,8 @@
   }
   #config .padding-box {
     padding: 1rem 3rem;
-    max-width: 100%;
+    /* max-width: 100%; */
+    max-height: calc(100% - 6rem);
     overflow-y: scroll;
-  }
-  #config .padding-box .option-menu {
-    background-color: red;
   }
 </style>

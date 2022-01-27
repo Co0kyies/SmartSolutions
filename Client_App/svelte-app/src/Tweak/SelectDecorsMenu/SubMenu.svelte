@@ -27,11 +27,11 @@
     <CardTitle>{title}</CardTitle>
   </CardHeader>
   <CardBody>
-    <Card class=" b decorsContainer">
+    <div class="card">
       {#each decors as decor}
         {#if selectedDecor == decor.number}
           <div
-            class="decorOpt selected"
+            class="decorOpt selected card"
             on:click={() => {
               selectedDecor = decor.number;
             }}
@@ -41,7 +41,7 @@
           </div>
         {:else}
           <div
-            class="decorOpt selected"
+            class="decorOpt card"
             on:click={() => {
               selectedDecor = decor.number;
             }}
@@ -51,19 +51,34 @@
           </div>
         {/if}
       {/each}
-    </Card>
+    </div>
   </CardBody>
 </Card>
 
 <style>
-  .decorsContainer {
-    background-color: khaki;
+  :root {
+    --decor-width: 6rem;
+    --decor-padding: 0.5rem;
   }
-  .decorOpt {
-    width: 3rem;
-    height: 5rem;
+  .card {
+    display: flex;
+    flex-direction: row;
+    height: fit-content;
+    padding: 1rem;
   }
-  img {
-    width: inherit;
+  .card .decorOpt {
+    cursor: pointer;
+    display: block;
+    width: var(--decor-width);
+    height: 11rem;
+    margin-right: 1.5rem;
+    padding: var(--decor-padding);
+    /* border: 0.5px grey solid; */
+  }
+  .card .selected {
+    background-color: rgb(161, 161, 161);
+  }
+  .card .decorOpt img {
+    width: calc(var(--decor-width) - (var(--decor-padding) * 2));
   }
 </style>

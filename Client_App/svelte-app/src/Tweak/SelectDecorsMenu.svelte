@@ -17,7 +17,7 @@
 </div>
 
 <style>
-  .main {
-    max-height: calc(100% - 8rem);
-  }
+  /* .main {
+    margin: 3rem 0;
+  } */
 </style>
