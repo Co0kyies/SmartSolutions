@@ -10,7 +10,7 @@
 </script>
 
 <div class="main">
-  <Card body color="info" class="mb-3"
+  <Card body style="background-color:#e8f4fe;" class="mb-3"
     ><SubMenu title="Изберете първи декор" decorNumber={1} />
     <SubMenu title="Изберете втори декор" decorNumber={2} />
   </Card>

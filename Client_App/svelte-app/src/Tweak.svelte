@@ -12,6 +12,7 @@
   import Nav from "./Tweak/Nav.svelte";
   import SizesMenu from "./Tweak/SizesMenu.svelte";
   import SelectDecorsMenu from "./Tweak/SelectDecorsMenu.svelte";
+  import ApplyDecorsMenu from "./Tweak/ApplyDecorsMenu.svelte";
   import { onDestroy } from "svelte";
 
   let options = [
@@ -45,11 +46,13 @@
           Гардероб с {$tweak} врати
         {/if}
       </h2>
-      <div class="option-menu">
+      <div class="options">
         {#if $tweakSelectedOption == options[0]}
           <SizesMenu />
         {:else if $tweakSelectedOption == options[1]}
           <SelectDecorsMenu />
+        {:else if $tweakSelectedOption == options[2]}
+          <ApplyDecorsMenu />
         {/if}
       </div>
     </div>
@@ -57,34 +60,31 @@
 </main>
 
 <style>
+  :root {
+    --footer-height: 6rem;
+    --header-height: 6rem;
+    --options-nav-size: 4rem;
+  }
+
   main {
+    display: flex;
+    max-height: calc(100% - var(--footer-height) - var(--header-height));
     width: 100%;
-    max-height: calc(100% - 8rem);
-    display: grid;
-    grid-template-columns: 4fr 5fr;
   }
   main #pic {
-    background-color: blue;
-    position: relative;
-    max-height: inherit;
+    width: 44%;
+    height: 100%;
   }
   main #pic img {
-    position: absolute;
-    top: 0;
-    left: 0;
     width: 100%;
     height: 100%;
   }
-  #config {
-    position: relative;
-    overflow-y: hidden;
+  main #config {
+    width: 56%;
   }
-  #config .padding-box {
-    padding: 1rem 3rem;
-    max-width: 100%;
+  main #config .padding-box {
+    height: calc(100% - var(--options-nav-size));
     overflow-y: scroll;
-  }
-  #config .padding-box .option-menu {
-    background-color: red;
+    padding: 1rem 3rem;
   }
 </style>

@@ -30,6 +30,7 @@
 
 <style>
   nav {
+    flex-basis: auto;
     display: flex;
   }
   div {

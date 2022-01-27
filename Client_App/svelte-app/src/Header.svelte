@@ -15,8 +15,6 @@
 
   const dispatch = createEventDispatcher();
 
-  let test = "1rem";
-
   function dispachSignOutEvenet() {
     dispatch("userSignOut");
   }
