@@ -8,33 +8,54 @@
     tweakSelectedWidth,
     tweakFitstDecor,
     tweakSecondDecor,
+    tweakMainDecor,
+    tweakFirstDoor,
+    tweakSecondDoor,
+    tweakThirdDoor,
+    tweakMenuOptions,
   } from "./store";
   import Nav from "./Tweak/Nav.svelte";
   import SizesMenu from "./Tweak/SizesMenu.svelte";
   import SelectDecorsMenu from "./Tweak/SelectDecorsMenu.svelte";
   import ApplyDecorsMenu from "./Tweak/ApplyDecorsMenu.svelte";
-  import { onDestroy } from "svelte";
+  import CompleteOrder from "./Tweak/CompleteOrder.svelte";
+  import { onMount, onDestroy } from "svelte";
 
-  let options = [
-    "Размери",
-    "Декори",
-    "Прилагане на Декори",
-    "Финилизиране на поръчката",
-  ];
+  let options = $tweakMenuOptions;
+  console.log($tweakSelectedWidth);
+
+  let snapshot = {
+    tweakSelectedHeight: $tweakSelectedHeight,
+    tweakSelectedWidth: $tweakSelectedWidth,
+    tweakSelectedDepth: $tweakSelectedDepth,
+    tweakSelectedCount: $tweakSelectedCount,
+    tweakFitstDecor: $tweakFitstDecor,
+    tweakSecondDecor: $tweakSecondDecor,
+    tweakMainDecor: $tweakMainDecor,
+    tweakFirstDoor: $tweakFirstDoor,
+    tweakSecondDoor: $tweakSecondDoor,
+    tweakThirdDoor: $tweakThirdDoor,
+  };
 
   onDestroy(() => {
-    $tweakSelectedWidth = undefined;
-    $tweakSelectedHeight = undefined;
-    $tweakSelectedDepth = undefined;
-    $tweakSelectedCount = undefined;
-    $tweakFitstDecor = "H1401";
-    $tweakSecondDecor = "U960ST9";
+    $tweakSelectedWidth = snapshot["tweakSelectedWidth"];
+    $tweakSelectedHeight = snapshot["tweakSelectedHeight"];
+    $tweakSelectedDepth = snapshot["tweakSelectedDepth"];
+    $tweakSelectedCount = snapshot["tweakSelectedCount"];
+    $tweakFitstDecor = snapshot["tweakFitstDecor"];
+    $tweakSecondDecor = snapshot["tweakSecondDecor"];
+    $tweakMainDecor = snapshot["tweakMainDecor"];
+    $tweakFirstDoor = snapshot["tweakFirstDoor"];
+    $tweakSecondDoor = snapshot["tweakSecondDoor"];
+    $tweakThirdDoor = snapshot["tweakThirdDoor"];
   });
 </script>
 
 <main>
   <div id="pic">
     <img src="./img/ED_{$tweak}doors.jpg" alt="" />
+    <!-- <span>Wardrobes_{$tweakMainDecor}_{$tweakFirstDoor}_{$tweakSecondDoor}</span
+    > -->
   </div>
   <div id="config">
     <Nav />
@@ -53,6 +74,8 @@
           <SelectDecorsMenu />
         {:else if $tweakSelectedOption == options[2]}
           <ApplyDecorsMenu />
+        {:else}
+          <CompleteOrder />
         {/if}
       </div>
     </div>

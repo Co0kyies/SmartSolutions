@@ -5,12 +5,18 @@
 
   export let title = "Избери първи декор";
   export let decorNumber;
-  let selectedDecor;
+  let selectedDecor = "false";
   let decors = [
     { number: "H3331", desc: "Nebraska Oak" },
     { number: "H1401", desc: "Cascina Pine" },
     { number: "U960ST9", desc: "Onyx Grey" },
   ];
+
+  if (decorNumber == 1) {
+    selectedDecor = $tweakFitstDecor;
+  } else {
+    selectedDecor = $tweakSecondDecor;
+  }
   onDestroy(() => {
     if (selectedDecor) {
       if (decorNumber == 1) {

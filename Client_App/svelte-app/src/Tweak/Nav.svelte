@@ -1,6 +1,6 @@
 <script>
-  import { tweakSelectedOption } from "../store";
-  let options = ["Размери", "Декори", "Прилагане на Декори", "Финилизиране"];
+  import { tweakSelectedOption, tweakMenuOptions } from "../store";
+  let options = $tweakMenuOptions;
 </script>
 
 <nav>
@@ -10,7 +10,6 @@
         class="active"
         on:click={() => {
           $tweakSelectedOption = option;
-          console.log($tweakSelectedOption);
         }}
       >
         <span>{i + 1}. {option}</span>
@@ -19,7 +18,6 @@
       <div
         on:click={() => {
           $tweakSelectedOption = option;
-          console.log($tweakSelectedOption);
         }}
       >
         <span>{i + 1}. {option}</span>
@@ -30,7 +28,6 @@
 
 <style>
   nav {
-    flex-basis: auto;
     display: flex;
   }
   div {

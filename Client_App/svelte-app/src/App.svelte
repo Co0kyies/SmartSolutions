@@ -24,7 +24,6 @@
 
   onAuthStateChanged(auth, (userA) => {
     if (userA) {
-      console.log(userA.uid);
       startListeningToRealTimeDB(database, userA.uid);
       $userId = userA.uid;
       $authUser = 1;
@@ -37,7 +36,6 @@
     const starCountRef = ref(database, "/website/" + userId);
     onValue(starCountRef, (snapshot) => {
       $user = snapshot.val();
-      console.log($user);
       user.subscribe((value) => {});
     });
   }
@@ -57,13 +55,13 @@
 <Route>
   <Route path="/">
     <Header on:userSignOut={userSignOut} />
-    <Tweak />
-    <!-- <Catalog /> -->
+    <Catalog />
+    <!-- <Tweak /> -->
     <Footer />
   </Route>
-
   <Route path="tweak">
     <Header on:userSignOut={userSignOut} />
+    <Tweak />
     <Footer />
   </Route>
   <Route path="/login">

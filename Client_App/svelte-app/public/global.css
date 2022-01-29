@@ -70,3 +70,9 @@ button:not(:disabled):active {
 button:focus {
   border-color: #666;
 }
+
+.my-card {
+  padding: 1rem;
+  border-radius: 0.25rem;
+  border: 1px solid rgba(0, 0, 0, 0.125);
+}
