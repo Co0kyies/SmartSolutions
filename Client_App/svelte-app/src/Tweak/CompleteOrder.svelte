@@ -12,7 +12,7 @@
     tweakThirdDoor,
     tweakSelectedCount,
   } from "../store";
-  import { Button } from "sveltestrap";
+  import AddToCartButton from "./CompleteOrders/AddToCartButton.svelte";
 </script>
 
 <div class="my-card">
@@ -31,8 +31,7 @@
     <OptionElement option="Дясна Врата: " value={$tweakThirdDoor} />
   {/if}
   <OptionElement option="Брой: " value={$tweakSelectedCount} />
-
-  <Button>Добави в количка</Button>
+  <AddToCartButton />
 </div>
 
 <style>

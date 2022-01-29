@@ -17,6 +17,7 @@
 
   let defalutUserObj = {
     email: "Зареждане...",
+    inBasket: [],
     totalCount: 0,
     totalPrice: 0,
   };
@@ -55,8 +56,8 @@
 <Route>
   <Route path="/">
     <Header on:userSignOut={userSignOut} />
-    <Catalog />
-    <!-- <Tweak /> -->
+    <!-- <Catalog /> -->
+    <Tweak />
     <Footer />
   </Route>
   <Route path="tweak">

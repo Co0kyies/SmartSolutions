@@ -22,7 +22,6 @@
   import { onMount, onDestroy } from "svelte";
 
   let options = $tweakMenuOptions;
-  console.log($tweakSelectedWidth);
 
   let snapshot = {
     tweakSelectedHeight: $tweakSelectedHeight,

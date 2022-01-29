@@ -6,7 +6,7 @@ export let authUser = writable(0);
 export let tweak = writable(2);
 
 export let tweakMenuOptions = writable(["Размери", "Декори", "Прилагане на Декори", "Финилизиране"])
-export let tweakSelectedOption = writable("Размери");
+export let tweakSelectedOption = writable("Финилизиране");
 export let tweakSelectedDepth = writable();
 export let tweakSelectedWidth = writable();
 export let tweakSelectedHeight = writable();
