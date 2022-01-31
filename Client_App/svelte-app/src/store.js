@@ -4,9 +4,10 @@ export let user = writable();
 export let userId = writable();
 export let authUser = writable(0);
 export let tweak = writable(2);
+export let pricePerCubic = writable(0.00068)
 
 export let tweakMenuOptions = writable(["Размери", "Декори", "Прилагане на Декори", "Финилизиране"])
-export let tweakSelectedOption = writable("Финилизиране");
+export let tweakSelectedOption = writable("Размери");
 export let tweakSelectedDepth = writable();
 export let tweakSelectedWidth = writable();
 export let tweakSelectedHeight = writable();

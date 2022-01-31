@@ -8,6 +8,7 @@
   import Header from "./Header.svelte";
   import Catalog from "./Catalog.svelte";
   import Tweak from "./Tweak.svelte";
+  import ShoppingCart from "./ShoppingCart.svelte";
   import Footer from "./Footer.svelte";
   import LoginRegister from "./LoginRegister.svelte";
 
@@ -37,6 +38,7 @@
     const starCountRef = ref(database, "/website/" + userId);
     onValue(starCountRef, (snapshot) => {
       $user = snapshot.val();
+      console.log($user);
       user.subscribe((value) => {});
     });
   }
@@ -56,8 +58,8 @@
 <Route>
   <Route path="/">
     <Header on:userSignOut={userSignOut} />
-    <!-- <Catalog /> -->
-    <Tweak />
+    <Catalog />
+    <!-- <ShoppingCart /> -->
     <Footer />
   </Route>
   <Route path="tweak">
@@ -72,6 +74,8 @@
     <LoginRegister menu="register" />
   </Route>
   <Route path="/cart">
-    <h1>SHOPPING CART</h1>
+    <Header on:userSignOut={userSignOut} />
+    <ShoppingCart />
+    <Footer />
   </Route>
 </Route>

@@ -27,3 +27,4 @@ export function writeToDatabase(path, values){
   console.log(path, values)
   set(ref(database, path), values)
 }
+

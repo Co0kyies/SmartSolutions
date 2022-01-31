@@ -76,7 +76,7 @@
   </div>
   <div>
     <h2>Парола:</h2>
-    <input bind:value={password} type="text" />
+    <input type="password" bind:value={password} />
   </div>
 
   {#if errorMessage}

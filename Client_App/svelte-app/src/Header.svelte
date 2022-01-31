@@ -43,7 +43,14 @@
       <a href="/login"><Button outline color="secondary">Login</Button></a>
     {/if}
   </div>
-  <a id="cart-button" href="/cart"><Icon name="cart-fill" /></a>
+  <a id="cart-button" href="/cart"
+    ><Icon name="cart-fill" />
+    {#if $authUser && $user.inBasket && Object.keys($user.inBasket).length > 0}
+      <div id="items-in-cart">{Object.keys($user.inBasket).length}</div>
+    {:else if $user.inBasket && $user.inBasket.length != 0}
+      <div id="items-in-cart">{$user.inBasket.length}</div>
+    {/if}
+  </a>
 </header>
 
 <style lang="css">
@@ -71,6 +78,20 @@
     right: 10%;
     font-size: 1.5rem;
     color: black;
+  }
+  #items-in-cart {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: absolute;
+    bottom: 0;
+    right: -0.4rem;
+    height: 1rem;
+    width: 1rem;
+    border-radius: 50%;
+    background-color: red;
+    font-size: 0.8rem;
+    color: white;
   }
   a {
     color: black;

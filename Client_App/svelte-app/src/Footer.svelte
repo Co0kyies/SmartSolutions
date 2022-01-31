@@ -5,7 +5,7 @@
 
 <footer>
   <span class="count-items-in-cart">Брой артикули: {$user.totalCount} </span>
-  <span class="total-price">Обща цена: {$user.totalCount} лв. </span>
+  <span class="total-price">Обща цена: {$user.totalPrice} лв. </span>
   <a href="/cart"><Button secondary>Към Оферта</Button></a>
 </footer>
 

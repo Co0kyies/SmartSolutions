@@ -37,6 +37,7 @@
   };
 
   onDestroy(() => {
+    $tweakSelectedOption = "Размери";
     $tweakSelectedWidth = snapshot["tweakSelectedWidth"];
     $tweakSelectedHeight = snapshot["tweakSelectedHeight"];
     $tweakSelectedDepth = snapshot["tweakSelectedDepth"];
