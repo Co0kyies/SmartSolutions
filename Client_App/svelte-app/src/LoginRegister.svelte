@@ -34,6 +34,7 @@
           .then((userCredential) => {
             // Signed in
             const user = userCredential.user;
+
             console.log(user);
 
             let valueObj = {
@@ -41,11 +42,11 @@
               totalCount: 0,
               totalPrice: 0,
             };
-
             writeToDatabase("/website/" + user.uid + "/", valueObj);
-            window.location.replace("/");
 
-            // ...
+            setTimeout(() => {
+              window.location.replace("/");
+            }, 250);
           })
 
           .catch((error) => {
