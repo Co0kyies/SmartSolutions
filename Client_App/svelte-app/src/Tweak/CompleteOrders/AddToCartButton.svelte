@@ -28,6 +28,7 @@
       secondDoor: $tweakSecondDoor,
       thirdDoor: $tweakThirdDoor,
       count: $tweakSelectedCount,
+      numberOfDoors: $tweak,
     };
 
     function calcPrice() {

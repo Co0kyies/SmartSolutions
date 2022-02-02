@@ -56,7 +56,7 @@
 
 <style>
   .my-card {
-    margin: 0.5rem 4%;
+    margin: 0.5rem 0;
   }
   .flex {
     position: relative;
