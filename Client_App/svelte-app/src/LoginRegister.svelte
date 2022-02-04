@@ -7,9 +7,8 @@
     createUserWithEmailAndPassword,
   } from "firebase/auth";
   import { ref, onValue } from "firebase/database";
-  import { user, authUser } from "./store";
+  import { user, authUser, userEmail } from "./store";
   import {} from "./firebase";
-
   let errorMessage;
   let conditions = {
     login: {
@@ -17,6 +16,7 @@
       func: function login(auth, email, password) {
         signInWithEmailAndPassword(auth, email, password)
           .then((userCredential) => {
+            debugger;
             // Signed in
             // Simulate an HTTP redirect:
             window.location.replace("/");
@@ -32,23 +32,18 @@
       func: function register(auth, email, password) {
         createUserWithEmailAndPassword(auth, email, password)
           .then((userCredential) => {
+            debugger;
             // Signed in
             const user = userCredential.user;
-
             console.log(user);
-
             let valueObj = {
               email: email,
               totalCount: 0,
               totalPrice: 0,
             };
-            writeToDatabase("/website/" + user.uid + "/", valueObj);
-
-            setTimeout(() => {
-              window.location.replace("/");
-            }, 250);
+            window.location.replace("/");
+            // ...
           })
-
           .catch((error) => {
             errorMessage = error.message;
             // ..
@@ -56,7 +51,6 @@
       },
     },
   };
-
   let email;
   let password;
   let userVal;

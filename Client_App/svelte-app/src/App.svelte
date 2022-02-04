@@ -3,7 +3,7 @@
 
   import { database, auth } from "./firebase";
   import { debugErrorMap, onAuthStateChanged, signOut } from "firebase/auth";
-  import { ref, onValue } from "firebase/database";
+  import { ref, onValue, set } from "firebase/database";
 
   import Header from "./Header.svelte";
   import Catalog from "./Catalog.svelte";
@@ -12,9 +12,11 @@
   import Footer from "./Footer.svelte";
   import LoginRegister from "./LoginRegister.svelte";
 
-  import { user, authUser, userId } from "./store";
+  import { user, authUser, userId, userEmail } from "./store";
 
   import { detach_before_dev } from "svelte/internal";
+
+  import { writeToDatabase } from "./firebase";
 
   let defalutUserObj = {
     email: "Зареждане...",
@@ -32,19 +34,23 @@
       $authUser = 1;
     } else {
       $user = defalutUserObj;
+      console.log("else");
     }
   });
 
   function startListeningToRealTimeDB(database, userId) {
     const starCountRef = ref(database, "/website/" + userId);
     onValue(starCountRef, (snapshot) => {
+      debugger;
       $user = snapshot.val();
-      console.log($user);
       if ($user === null) {
-        setTimeout(startListeningToRealTimeDB, 100);
-        console.log("True");
+        let valueObj = {
+          email: $userEmail,
+          totalCount: 0,
+          totalPrice: 0,
+        };
+        writeToDatabase(`website/${userId}`, "Hello");
       }
-      user.subscribe((value) => {});
     });
   }
 

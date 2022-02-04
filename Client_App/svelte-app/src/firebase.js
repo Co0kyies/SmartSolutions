@@ -23,9 +23,8 @@ export const app = initializeApp(firebaseConfig);
 export const auth = getAuth();
 export const database = getDatabase(app);
 
-export function writeToDatabase(path, values, func){
-  console.log(path, values)
-  set(ref(database, path), values)
-
+export function writeToDatabase(path, values) {
+  debugger;
+  console.log(path, values);
+  set(ref(database, path), values);
 }
-
