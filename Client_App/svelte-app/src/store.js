@@ -5,6 +5,7 @@ export let userId = writable();
 export let authUser = writable(0);
 export let tweak = writable();
 export let pricePerCubic = writable(0.00068);
+export let userEmail = writable();
 
 export let tweakMenuOptions = writable([
   "Размери",

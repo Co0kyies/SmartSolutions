@@ -7,7 +7,7 @@
     createUserWithEmailAndPassword,
   } from "firebase/auth";
   import { ref, onValue } from "firebase/database";
-  import { user, authUser, userEmail } from "./store";
+  import { user, authUser } from "./store";
   import {} from "./firebase";
   let errorMessage;
   let conditions = {
@@ -30,18 +30,20 @@
     register: {
       text: "Регистрация",
       func: function register(auth, email, password) {
+        debugger;
+        console.log();
         createUserWithEmailAndPassword(auth, email, password)
           .then((userCredential) => {
             debugger;
-            // Signed in
-            const user = userCredential.user;
-            console.log(user);
             let valueObj = {
               email: email,
               totalCount: 0,
               totalPrice: 0,
             };
-            window.location.replace("/");
+            const user = userCredential.user;
+            writeToDatabase(`website/${user.uid}`, valueObj, () => {
+              window.location.replace("/");
+            });
             // ...
           })
           .catch((error) => {
@@ -80,8 +82,9 @@
   <Button
     color="danger"
     class="mt-3"
-    on:click={conditions[menu].func(auth, email, password)}
-    >{conditions[menu].text}</Button
+    on:click={() => {
+      conditions[menu].func(auth, email, password);
+    }}>{conditions[menu].text}</Button
   >
   {#if menu == "login"}
     <a href="/register">Регистрация</a>

@@ -12,7 +12,7 @@
   import Footer from "./Footer.svelte";
   import LoginRegister from "./LoginRegister.svelte";
 
-  import { user, authUser, userId, userEmail } from "./store";
+  import { user, authUser, userId } from "./store";
 
   import { detach_before_dev } from "svelte/internal";
 
@@ -44,12 +44,9 @@
       debugger;
       $user = snapshot.val();
       if ($user === null) {
-        let valueObj = {
-          email: $userEmail,
-          totalCount: 0,
-          totalPrice: 0,
-        };
-        writeToDatabase(`website/${userId}`, "Hello");
+        setTimeout(() => {
+          console.log($user), 3000;
+        });
       }
     });
   }
