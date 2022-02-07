@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+
+    <title>Svelte app</title>
+
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="stylesheet" href="/global.css" />
+    <link rel="stylesheet" href="/build/bundle.css" />
+    <script defer src="/build/bundle.js"></script>
+
+    <!-- <script src="https://unpkg.com/zdog@1/dist/zdog.dist.min.js"></script> -->
+    <script src="./Zdog.js"></script>
+  </head>
+
+  <body>
+    <canvas class="zdog-canvas" width="240" height="240"></canvas>
+    <script>
+      // zdog-demo.js
+      let element = document.querySelector(".zdog-canvas");
+      console.log(element);
+      // create illo
+      let illo = new Zdog.Illustration({
+        // set canvas with selector
+        element: element,
+        dragRotate: true,
+      });
+
+      // add circle
+      new Zdog.Ellipse({
+        addTo: illo,
+        diameter: 80,
+        stroke: 20,
+        color: "#636",
+      });
+      function animate() {
+        illo.updateRenderGraph();
+        requestAnimationFrame(animate);
+      }
+      console.log(document.querySelector(".zdog-canvas"));
+
+      animate();
+
+      // update & render
+      illo.updateRenderGraph();
+    </script>
+  </body>
+</html>
