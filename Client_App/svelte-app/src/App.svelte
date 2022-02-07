@@ -28,7 +28,6 @@
 
   onAuthStateChanged(auth, (userA) => {
     if (userA) {
-      debugger;
       startListeningToRealTimeDB(database, userA.uid);
       $userId = userA.uid;
       $authUser = 1;
@@ -41,7 +40,6 @@
   function startListeningToRealTimeDB(database, userId) {
     const starCountRef = ref(database, "/website/" + userId);
     onValue(starCountRef, (snapshot) => {
-      debugger;
       $user = snapshot.val();
       if ($user === null) {
         setTimeout(() => {

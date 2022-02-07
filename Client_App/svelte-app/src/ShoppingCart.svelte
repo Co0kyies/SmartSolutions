@@ -6,6 +6,7 @@
   import FinishOrderModal from "./ShoppingCart/FinishOrderModal.svelte";
   import OrderButton from "./ShoppingCart/OrderButton.svelte";
   import { user, authUser } from "./store";
+  import GenerateTheRoutes from "./ShoppingCart/GenerateTheRoutes.svelte";
   import {
     Modal,
     ModalBody,
@@ -33,6 +34,7 @@
     <div class="my-card"><h3>Вие нямате никакви артикули в количката</h3></div>
   {:else}
     <OrderButton />
+    <GenerateTheRoutes />
   {/if}
   <div class="padding-box" />
 </div>
