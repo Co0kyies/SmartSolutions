@@ -1,0 +1,30 @@
+{
+    "orderId": {
+        "materials": [
+            {
+                "x": 123,
+                "y": 130,
+                "holes": [],
+                "decor": "HHHH"
+            },
+            {
+                "x": 123,
+                "y": 130,
+                "holes": [],
+                "decor": "HHHH"
+            },
+            {
+                "x": 123,
+                "y": 130,
+                "holes": [],
+                "decor": "HHHH"
+            },
+            {
+                "x": 123,
+                "y": 130,
+                "holes": [],
+                "decor": "HHHH"
+            }
+        ]
+    }
+}

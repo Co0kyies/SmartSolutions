@@ -1,6 +1,24 @@
 <script>
   export let name;
+  import { onMount } from "svelte";
   import anime from "animejs/lib/anime.es.js";
+  import { app } from "./firebase";
+  import { getDatabase, ref, get, child } from "firebase/database";
+
+  onMount(() => {
+    const dbRef = ref(getDatabase(app));
+    get(child(dbRef, `website`))
+      .then((snapshot) => {
+        if (snapshot.exists()) {
+          console.log(snapshot.val());
+        } else {
+          console.log("No data available");
+        }
+      })
+      .catch((error) => {
+        console.error(error);
+      });
+  });
 </script>
 
 <main>
