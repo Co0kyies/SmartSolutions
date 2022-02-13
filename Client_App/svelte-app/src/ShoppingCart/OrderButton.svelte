@@ -56,76 +56,10 @@
   let adress;
   let city;
   const toggle = () => (open = !open);
-  // function returnRouteFunctions() {
-  //   let orders = [];
-  //   function addToRoute(obj) {
-  //     orders.push(obj);
-  //   }
-  //   function addRoutesToDatabase() {
-  //     // (function makeRoute(city) {
-  //     //   setTimeout(() => {
-  //     //     function createNewRoute() {
-  //     //       const routeRef = ref(database, `routes/${city}`);
-  //     //       const newRouteRef = push(routeRef);
-  //     //       set(newRouteRef, newRoute);
-  //     //     }
-  //     //     const maxWeight = 5000;
-  //     //     const maxCubicMeters = 30;
-  //     //     let newRoute = {
-  //     //       maxWeight: maxWeight,
-  //     //       maxCubicMeters: maxCubicMeters,
-  //     //       currentWeight: orderTotalWeight,
-  //     //       currentCubicMeters: orderCubicMeters,
-  //     //       orders: [orderId],
-  //     //       dateToShippment: `${new Date().getDate()}-${
-  //     //         new Date().getMonth() + 2
-  //     //       }-${new Date().getFullYear()}`,
-  //     //     };
-  //     //     get(child(dbRef, `routes/${city}`))
-  //     //       .then((snapshot) => {
-  //     //         if (snapshot.exists()) {
-  //     //           let cityRoutes = snapshot.val();
-  //     //           let noFreeRoutes = true;
-  //     //           for (const key in cityRoutes) {
-  //     //             let route = cityRoutes[key];
-  //     //             if (
-  //     //               route.currentWeight + orderTotalWeight < route.maxWeight &&
-  //     //               route.currentCubicMeters + orderCubicMeters <
-  //     //                 route.maxCubicMeters
-  //     //             ) {
-  //     //               noFreeRoutes = false;
-  //     //               writeToDatabase(
-  //     //                 `routes/${city}/${key}/orders/${route.orders.length}`,
-  //     //                 orderId
-  //     //               );
-  //     //               writeToDatabase(
-  //     //                 `routes/${city}/${key}/currentWeight`,
-  //     //                 route.currentWeight + orderTotalWeight
-  //     //               );
-  //     //               writeToDatabase(
-  //     //                 `routes/${city}/${key}/currentCubicMeters`,
-  //     //                 route.currentCubicMeters + orderCubicMeters
-  //     //               );
-  //     //             }
-  //     //           }
-  //     //           if (noFreeRoutes) {
-  //     //             createNewRoute();
-  //     //           }
-  //     //         } else {
-  //     //           createNewRoute();
-  //     //         }
-  //     //       })
-  //     //       .catch((error) => {
-  //     //         console.error(error);
-  //     //       });
-  //     //   }, 5000);
-  //     // })(city);
-  //   }
-  //   return [addToRoute, addRoutesToDatabase];
-  // }
 
   function makeAnOrder(
     simulate = false,
+    customInBasket,
     customTotalPrice,
     customDate,
     customCity,
@@ -171,6 +105,9 @@
 
       //
       //Make an Item
+      if (simulate) {
+        $user.inBasket = customInBasket;
+      }
       let inBasketKeys = Object.keys($user.inBasket);
       let itemKeys = [];
       function makeItemsInDB() {
@@ -361,7 +298,10 @@
       let orderCubicMeters = 0;
       function connectItemsWithOrders() {
         writeToDatabase("allOrders/" + orderId + "/items", itemKeys);
-
+        writeToDatabase(
+          "allOrders/" + orderId + "/itemsCount",
+          itemKeys.length
+        );
         const dbRef = ref(getDatabase());
         for (let i = 0; i < itemKeys.length; i++) {
           let itemId = itemKeys[i];
@@ -476,50 +416,6 @@
                   `routes/${city}/${routeLenght - 1}/cubicMeters`,
                   route.cubicMeters + orderCubicMeters
                 );
-
-                function turnDateToNumber(date) {
-                  date = String(date);
-                  let day = "";
-                  for (let i = 0; i < date.length; i++) {
-                    if (date == "-") {
-                      day = Number(day);
-                      month = month.substring(i + 1);
-                      break;
-                    }
-                    day += date[i];
-                  }
-                  let month = "";
-                  for (let i = 0; i < date.length; i++) {
-                    if (date == "-") {
-                      month = Number(month);
-                      month = month.substring(i + 1);
-                      break;
-                    }
-                    month += date[i];
-                  }
-                  let monthDaysMap = {
-                    0: 0,
-                    1: 31,
-                    2: 28,
-                    3: 31,
-                    4: 30,
-                    5: 31,
-                    6: 30,
-                    7: 31,
-                    8: 30,
-                    9: 31,
-                    10: 30,
-                    11: 31,
-                    12: 30,
-                  };
-                  month -= 1;
-                  let totalDays;
-                  while (month > 0) {
-                    totalDays += monthDaysMap[month];
-                    month--;
-                  }
-                  return totalDays + day;
-                }
               }
               //OR
             }
@@ -600,7 +496,7 @@
         customInBasket[key].pricePerUnit = Number(
           (widht * depth * height * $pricePerCubic).toFixed(2)
         );
-        customInBasket[key].width = widht;
+        customInBasket[key].widht = widht;
         customInBasket[key].depth = depth;
         customInBasket[key].height = height;
       }
@@ -663,7 +559,6 @@
         customCity,
         customAdress
       );
-      console.log("Order Anitiated");
     }
     for (let month = 1; month < 4; month++) {
       if (month == 2) {

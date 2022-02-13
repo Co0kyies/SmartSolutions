@@ -55,7 +55,5 @@ export const getAllItemsSnapshot = new Promise((resolve) => {
         return "No data available";
       }
     })
-    .catch((error) => {
-      console.error(error);
-    });
+    .catch((error) => {});
 });

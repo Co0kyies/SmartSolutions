@@ -1,46 +1,56 @@
 <script>
-  import { Route } from "tinro";
-
   import { Wave } from "svelte-loading-spinners";
   import BarChart from "./BarChart.svelte";
   import LineChart from "./LineChart.svelte";
-
   import LayerOne from "./LayerOne.svelte";
   import Nav from "./Nav/Nav.svelte";
+
+  import { onMount } from "svelte";
   import { selectedMenu, type } from "./store";
-
-  import {
-    getAllItemsSnapshot,
-    getAllOrdersSnapshot,
-  } from "./scripts/firabase";
-
-  import { getArrayOfAllClients } from "./scripts/clientsBar";
 
   import { salesBar } from "./scripts/salesBar";
   import { salesLine } from "./scripts/salesLine";
 
+  import { app } from "./scripts/firabase";
+  import { getDatabase, ref, child, get } from "firebase/database";
   // salesLine();
   let ordersLoaded = false;
   let itemsLoaded = false;
   let ordersDB;
   let itemsDB;
 
-  getAllItemsSnapshot.then((snapshot) => {
-    itemsDB = snapshot;
-    itemsLoaded = true;
-  });
-
-  getAllOrdersSnapshot.then((snapshot) => {
-    ordersDB = snapshot;
-    ordersLoaded = true;
-  });
-
-  setTimeout(() => {
-    getArrayOfAllClients.then((snapshot) => {
-      console.log(snapshot);
+  onMount(() => {
+    let dbRef = ref(getDatabase(app));
+    get(child(dbRef, `items`)).then((snapshot) => {
+      if (snapshot.exists()) {
+        console.log(snapshot.val());
+      } else {
+        return "No data available";
+      }
     });
-  }, 300);
-  console.log(salesBar());
+    // get(child(dbRef, `allOrders`)).then((snapshot) => {
+    //   if (snapshot.exists()) {
+    //     console.log(snapshot.val());
+    //   } else {
+    //     return "No data available";
+    //   }
+    // });
+    // get(child(dbRef, `website`)).then((snapshot) => {
+    //   if (snapshot.exists()) {
+    //     console.log(snapshot.val());
+    //   } else {
+    //     return "No data available";
+    //   }
+    // });
+    // get(child(dbRef, `items`)).then((snapshot) => {
+    //   if (snapshot.exists()) {
+    //     console.log(snapshot.val());
+    //   } else {
+    //     return "No data available";
+    //   }
+    // });
+  });
+
   if (itemsLoaded == true && ordersLoaded == true) {
   }
   let barFunctions = {};
