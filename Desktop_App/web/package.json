@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "animejs": "^3.2.1",
+    "firebase": "^9.6.6",
     "sirv-cli": "^2.0.0"
   }
 }
