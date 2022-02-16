@@ -105,15 +105,22 @@
 
       //
       //Make an Item
+      let inBasketKeys;
       if (simulate) {
-        $user.inBasket = customInBasket;
+        inBasketKeys = Object.keys(customInBasket);
+      } else {
+        inBasketKeys = Object.keys($user.inBasket);
       }
-      let inBasketKeys = Object.keys($user.inBasket);
       let itemKeys = [];
       function makeItemsInDB() {
         for (let i = 0; i < inBasketKeys.length; i++) {
           const key = inBasketKeys[i];
-          const item = $user.inBasket[key];
+          let item;
+          if (simulate) {
+            item = customInBasket[key];
+          } else {
+            item = $user.inBasket[key];
+          }
           //Calculating the materials Needed
           const kgPerSquare = 10;
           const pageDepth = 1.8;
@@ -259,9 +266,6 @@
           for (let i = 0; i < item.numberOfDoors; i++) {
             calcMaterial("door", i + 1, item.numberOfDoors);
           }
-          console.log(cubicMeters);
-          console.log(totalWeight);
-          console.log(materials);
 
           for (let i = 0; i < item.count; i++) {
             let newItem = {
@@ -285,9 +289,7 @@
             set(newItemRef, newItem)
               .then(connectItemsWithOrders)
               .then(() => {
-                if (!simulate) {
-                  addToRoutes();
-                }
+                addToRoutes();
               });
           }
         }
@@ -303,12 +305,30 @@
           itemKeys.length
         );
         const dbRef = ref(getDatabase());
+
+        //Updating ItemKeys
+        get(child(dbRef, "itemKeys"))
+          .then((snapshot) => {
+            if (snapshot.exists()) {
+              let currentKeys = snapshot.val();
+              for (let index = 0; index < itemKeys.length; index++) {
+                currentKeys.push(itemKeys[index]);
+              }
+
+              writeToDatabase(`itemKeys`, currentKeys);
+            } else {
+              writeToDatabase(`itemKeys`, itemKeys);
+            }
+          })
+          .catch((error) => {
+            console.log(error);
+          });
+        //
         for (let i = 0; i < itemKeys.length; i++) {
           let itemId = itemKeys[i];
           get(child(dbRef, `items/${itemId}`))
             .then((snapshot) => {
               if (snapshot.exists()) {
-                console.log(snapshot.val());
                 orderTotalWeight += snapshot.val().totalWeight;
                 orderCubicMeters += snapshot.val().cubicMeters;
                 if (i + 1 == itemKeys.length) {
@@ -343,6 +363,7 @@
       const maxWeight = 5000;
       const maxCubicMeters = 800;
       function addToRoutes() {
+        debugger;
         function createNewRoute(routeLenght) {
           function calcDateToShippment() {
             if (simulate) {
@@ -388,6 +409,7 @@
         const dbRef = ref(getDatabase());
         get(child(dbRef, `routes/${city}`)).then((snapshot) => {
           if (snapshot.exists()) {
+            debugger;
             const snapshotVal = snapshot.val();
             const routeLenght = snapshotVal.length;
             const route = snapshotVal[routeLenght - 1];
@@ -396,6 +418,7 @@
                 route.totalWeight + orderTotalWeight > maxWeight ||
                 route.cubicMeters + orderCubicMeters > maxCubicMeters
               ) {
+                //Creating new order
                 createNewRoute(routeLenght);
               } else {
                 //Add the Order
@@ -551,6 +574,13 @@
       //   let customCity = "Русе";
       //   let customDate = "01-01-2021";
       //   let customAdress = "Стефан Караджа 8";
+      console.log(
+        customInBasket,
+        customTotalPrice,
+        customDate,
+        customCity,
+        customAdress
+      );
       makeAnOrder(
         true,
         customInBasket,
@@ -560,23 +590,24 @@
         customAdress
       );
     }
-    for (let month = 1; month < 4; month++) {
-      if (month == 2) {
-        for (let day = 1; day < 29; day++) {
-          generateOrder(month, day);
-        }
-      } else {
-        for (let day = 1; day < 32; day++) {
-          generateOrder(month, day);
-        }
-      }
-    }
+    // for (let month = 1; month < 4; month++) {
+    //   if (month == 2) {
+    //     for (let day = 1; day < 29; day++) {
+    //       generateOrder(month, day);
+    //     }
+    //   } else {
+    //     for (let day = 1; day < 32; day++) {
+    //       generateOrder(month, day);
+    //     }
+    //   }
+    // }
     generateOrder(3, 6);
   }
   function deleteAllDatabase() {
     writeToDatabase("allOrders", null);
     writeToDatabase("items", null);
     writeToDatabase("routes", null);
+    writeToDatabase("itemKeys", null);
   }
 </script>
 

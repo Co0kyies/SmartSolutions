@@ -24,6 +24,5 @@ export const auth = getAuth();
 export const database = getDatabase(app);
 
 export function writeToDatabase(path, values, func) {
-  console.log(path, values);
   set(ref(database, path), values).then(func);
 }
