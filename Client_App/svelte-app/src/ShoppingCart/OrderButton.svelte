@@ -53,6 +53,20 @@
     "Ул Георги Господинов 32",
     "Ул Фънки Войвода",
   ];
+  const monthMap = {
+    1: "January",
+    2: "February",
+    3: "Martch ",
+    4: "April",
+    5: "May",
+    6: "June",
+    7: "July",
+    8: "August",
+    9: "September",
+    10: "October",
+    11: "November",
+    12: "December",
+  };
   let adress;
   let city;
   const toggle = () => (open = !open);
@@ -104,6 +118,43 @@
       //
 
       //
+      function makeOrderKey() {
+        let dateOrdered = order.dateOrdered;
+        let monthIndex = "";
+        let iritatingTroughMonths = false;
+        //Collection the index of the month
+        for (let index = 0; index < dateOrdered.length; index++) {
+          if (iritatingTroughMonths) {
+            if (dateOrdered[index] == "-") {
+              break;
+            } else {
+              monthIndex += dateOrdered[index];
+            }
+          } else {
+            if (dateOrdered[index] == "-") {
+              iritatingTroughMonths = true;
+            }
+          }
+        }
+        //Maping to the month
+        let month = monthMap[monthIndex];
+        console.log(monthIndex, month);
+        let dbRef = ref(getDatabase());
+        get(child(dbRef, `OrderKeys/${month}`))
+          .then((snapshot) => {
+            if (snapshot.exists()) {
+              let arrayOfKeys = snapshot.val();
+              arrayOfKeys.push(orderId);
+              writeToDatabase(`OrderKeys/${month}`, arrayOfKeys);
+            } else {
+              writeToDatabase(`OrderKeys/${month}`, [orderId]);
+            }
+          })
+          .catch((error) => {
+            console.log(error);
+          });
+      }
+      makeOrderKey();
       //Make an Item
       let inBasketKeys;
       if (simulate) {
@@ -307,22 +358,25 @@
         const dbRef = ref(getDatabase());
 
         //Updating ItemKeys
-        get(child(dbRef, "itemKeys"))
-          .then((snapshot) => {
-            if (snapshot.exists()) {
-              let currentKeys = snapshot.val();
-              for (let index = 0; index < itemKeys.length; index++) {
-                currentKeys.push(itemKeys[index]);
-              }
+        //Useless
 
-              writeToDatabase(`itemKeys`, currentKeys);
-            } else {
-              writeToDatabase(`itemKeys`, itemKeys);
-            }
-          })
-          .catch((error) => {
-            console.log(error);
-          });
+        // function updateItemKeys(params) {
+        // get(child(dbRef, "itemKeys"))
+        // .then((snapshot) => {
+        //   if (snapshot.exists()) {
+        //     let currentKeys = snapshot.val();
+        //     for (let index = 0; index < itemKeys.length; index++) {
+        //       currentKeys.push(itemKeys[index]);
+        //     }
+        //     writeToDatabase(`itemKeys`, currentKeys);
+        //   } else {
+        //     writeToDatabase(`itemKeys`, itemKeys);
+        //   }
+        // })
+        // .catch((error) => {
+        //   console.log(error);
+        // });
+        // }
         //
         for (let i = 0; i < itemKeys.length; i++) {
           let itemId = itemKeys[i];
@@ -363,7 +417,6 @@
       const maxWeight = 5000;
       const maxCubicMeters = 800;
       function addToRoutes() {
-        debugger;
         function createNewRoute(routeLenght) {
           function calcDateToShippment() {
             if (simulate) {
@@ -409,7 +462,6 @@
         const dbRef = ref(getDatabase());
         get(child(dbRef, `routes/${city}`)).then((snapshot) => {
           if (snapshot.exists()) {
-            debugger;
             const snapshotVal = snapshot.val();
             const routeLenght = snapshotVal.length;
             const route = snapshotVal[routeLenght - 1];
@@ -590,24 +642,52 @@
         customAdress
       );
     }
-    // for (let month = 1; month < 4; month++) {
-    //   if (month == 2) {
-    //     for (let day = 1; day < 29; day++) {
-    //       generateOrder(month, day);
-    //     }
-    //   } else {
-    //     for (let day = 1; day < 32; day++) {
-    //       generateOrder(month, day);
-    //     }
-    //   }
-    // }
-    generateOrder(3, 6);
+    let irritation = 1;
+    for (let month = 1; month < 4; month++) {
+      if (month == 2) {
+        for (let day = 1; day < 29; day++) {
+          irritation++;
+          // setTimeout(generateOrder.bind(month, day), 3000 * irritation);
+          function functionParser() {
+            let scopedDay = day;
+            let scopedMonth = month;
+            function functionParsed() {
+              // generateOrder(day, month);
+              generateOrder(scopedMonth, scopedDay);
+            }
+            return functionParsed;
+          }
+          let functionParsed = functionParser();
+
+          setTimeout(functionParsed, 6000 * irritation);
+        }
+      } else {
+        for (let day = 1; day < 32; day++) {
+          irritation++;
+          // setTimeout(generateOrder.bind(month, day), 3000 * irritation);
+          function functionParser() {
+            let scopedDay = day;
+            let scopedMonth = month;
+            function functionParsed() {
+              // generateOrder(day, month);
+              generateOrder(scopedMonth, scopedDay);
+            }
+            return functionParsed;
+          }
+          let functionParsed = functionParser();
+
+          setTimeout(functionParsed, 6000 * irritation);
+        }
+      }
+    }
+    // generateOrder(3, 6);
   }
   function deleteAllDatabase() {
     writeToDatabase("allOrders", null);
     writeToDatabase("items", null);
     writeToDatabase("routes", null);
     writeToDatabase("itemKeys", null);
+    writeToDatabase("OrderKeys", null);
   }
 </script>
 
