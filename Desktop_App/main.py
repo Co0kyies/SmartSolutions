@@ -2,9 +2,15 @@ import eel
 # import subprocess, sys
 import requests
 import shutil
+import json
+import uuid
 
 # eel.init("web/public")
-# eel.start("index.html")
+@eel.expose
+def hello():
+    print("Hello ")
+
+
 
 def runPDFtoPrinter():
     p = subprocess.Popen(["powershell.exe", 
@@ -12,6 +18,45 @@ def runPDFtoPrinter():
               stdout=sys.stdout)    
     p.communicate()
 
+@eel.expose
+def dump_orders(data):
+    with open("./JSON_DB/orders.json", "w") as write_file:
+        print("Funcion Activated")
+        json.dump(data, write_file)
+
+
+def makeBarcodes():
+    with open("./JSON_DB/barcodes.json", "r") as read_barcodes:
+        barcodes = json.load(read_barcodes)
+    with open("./JSON_DB/orders.json", "r") as read_file:
+        courses = json.load(read_file)
+        for course in courses:
+            destination = course["destination"]
+            for key in course:
+                if key != "destination":
+                    order_id = key
+                    for itemId in course[order_id]:
+                        model = course[order_id][itemId]["model"]
+                        for material in course[order_id][itemId]["materials"]:
+                            barcode = str(uuid.uuid4())
+                            newDict = {
+                                "heigh": material["y"],
+                                "widht": material["x"],
+                                "decor": material["decor"],
+                                "Course": destination,
+                                "OrderId": order_id,
+                                "ItemModel": model,
+                            }
+                            barcodes["allBarcodes"].append(barcode)
+                            barcodes[barcode] = newDict
+    with open("./JSON_DB/barcodes.json", "w") as write_barcodes:
+        json.dump(barcodes, write_barcodes)
+
+                        
+
+makeBarcodes()
+
+# makeBarcodes()
 
 def test_labelary_API():
     zpl = '^XA^FX Top section with logo, name and address.^CF0,60^FO50,50^GB100,100,100^FS^FO75,75^FR^GB100,100,100^FS^FO93,93^GB40,40,40^FS^FO220,50^FDSmart Solutions.^FS^CF0,30^FO220,115^FDOrder No. ORDERNUMBER^FS^FO220,155^FDCourse No. CourseNumber^FS^FO220,195^FDDestination: Ruse^FS^FO50,250^GB700,3,3^FS^FX Second section with recipient address and permit information.^CFA,30^FO150,300^FDHeight: ^FS^FO150,340^FDWidth: ^FS^FO150,380^FDDecor: ^FS^CFA,15^FO50,500^GB700,3,3^FS^FX Third section with bar code.^BY5,2,270^FO100,550^BC^FD12345678^FS^XZ'
@@ -29,4 +74,6 @@ def test_labelary_API():
     else:
         print('Error: ' + response.text)
 
-test_labelary_API()
+    
+
+# eel.start("index.html")

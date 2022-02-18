@@ -45,6 +45,10 @@ var app = (function () {
     function space() {
         return text(' ');
     }
+    function listen(node, event, handler, options) {
+        node.addEventListener(event, handler, options);
+        return () => node.removeEventListener(event, handler, options);
+    }
     function attr(node, attribute, value) {
         if (value == null)
             node.removeAttribute(attribute);
@@ -307,6 +311,19 @@ var app = (function () {
     function detach_dev(node) {
         dispatch_dev('SvelteDOMRemove', { node });
         detach(node);
+    }
+    function listen_dev(node, event, handler, options, has_prevent_default, has_stop_propagation) {
+        const modifiers = options === true ? ['capture'] : options ? Array.from(Object.keys(options)) : [];
+        if (has_prevent_default)
+            modifiers.push('preventDefault');
+        if (has_stop_propagation)
+            modifiers.push('stopPropagation');
+        dispatch_dev('SvelteDOMAddEventListener', { node, event, handler, modifiers });
+        const dispose = listen(node, event, handler, options);
+        return () => {
+            dispatch_dev('SvelteDOMRemoveEventListener', { node, event, handler, modifiers });
+            dispose();
+        };
     }
     function attr_dev(node, attribute, value) {
         attr(node, attribute, value);
@@ -4828,7 +4845,7 @@ var app = (function () {
         return dbPromise;
     }
     /** Assigns or overwrites the record for the given key with the given value. */
-    async function set(appConfig, value) {
+    async function set$1(appConfig, value) {
         const key = getKey(appConfig);
         const db = await getDbPromise();
         const tx = db.transaction(OBJECT_STORE_NAME, 'readwrite');
@@ -4963,7 +4980,7 @@ var app = (function () {
     async function registerInstallation(appConfig, installationEntry) {
         try {
             const registeredInstallationEntry = await createInstallationRequest(appConfig, installationEntry);
-            return set(appConfig, registeredInstallationEntry);
+            return set$1(appConfig, registeredInstallationEntry);
         }
         catch (e) {
             if (isServerError(e) && e.customData.serverCode === 409) {
@@ -4973,7 +4990,7 @@ var app = (function () {
             }
             else {
                 // Registration failed. Set FID as not registered.
-                await set(appConfig, {
+                await set$1(appConfig, {
                     fid: installationEntry.fid,
                     registrationStatus: 0 /* NOT_STARTED */
                 });
@@ -5187,7 +5204,7 @@ var app = (function () {
         try {
             const authToken = await generateAuthTokenRequest(installations, installationEntry);
             const updatedInstallationEntry = Object.assign(Object.assign({}, installationEntry), { authToken });
-            await set(installations.appConfig, updatedInstallationEntry);
+            await set$1(installations.appConfig, updatedInstallationEntry);
             return authToken;
         }
         catch (e) {
@@ -5199,7 +5216,7 @@ var app = (function () {
             }
             else {
                 const updatedInstallationEntry = Object.assign(Object.assign({}, installationEntry), { authToken: { requestStatus: 0 /* NOT_STARTED */ } });
-                await set(installations.appConfig, updatedInstallationEntry);
+                await set$1(installations.appConfig, updatedInstallationEntry);
             }
             throw e;
         }
@@ -16021,6 +16038,15 @@ var app = (function () {
         return isValidPathString(pathString);
     };
     /**
+     * Pre-validate a datum passed as an argument to Firebase function.
+     */
+    const validateFirebaseDataArg = function (fnName, value, path, optional) {
+        if (optional && value === undefined) {
+            return;
+        }
+        validateFirebaseData(errorPrefix(fnName, 'value'), value, path);
+    };
+    /**
      * Validate a data object client-side before sending to server.
      */
     const validateFirebaseData = function (errorPrefix, data, path_) {
@@ -16109,6 +16135,14 @@ var app = (function () {
             pathString = pathString.replace(/^\/*\.info(\/|$)/, '/');
         }
         validatePathString(fnName, argumentName, pathString, optional);
+    };
+    /**
+     * @internal
+     */
+    const validateWritablePath = function (fnName, path) {
+        if (pathGetFront(path) === '.info') {
+            throw new Error(fnName + " failed = Can't modify data under /.info/");
+        }
     };
     const validateUrl = function (fnName, parsedUrl) {
         // TODO = Validate server better.
@@ -16480,6 +16514,35 @@ var app = (function () {
             return Promise.reject(new Error(err));
         });
     }
+    function repoSetWithPriority(repo, path, newVal, newPriority, onComplete) {
+        repoLog(repo, 'set', {
+            path: path.toString(),
+            value: newVal,
+            priority: newPriority
+        });
+        // TODO: Optimize this behavior to either (a) store flag to skip resolving where possible and / or
+        // (b) store unresolved paths on JSON parse
+        const serverValues = repoGenerateServerValues(repo);
+        const newNodeUnresolved = nodeFromJSON(newVal, newPriority);
+        const existing = syncTreeCalcCompleteEventCache(repo.serverSyncTree_, path);
+        const newNode = resolveDeferredValueSnapshot(newNodeUnresolved, existing, serverValues);
+        const writeId = repoGetNextWriteId(repo);
+        const events = syncTreeApplyUserOverwrite(repo.serverSyncTree_, path, newNode, writeId, true);
+        eventQueueQueueEvents(repo.eventQueue_, events);
+        repo.server_.put(path.toString(), newNodeUnresolved.val(/*export=*/ true), (status, errorReason) => {
+            const success = status === 'ok';
+            if (!success) {
+                warn('set at ' + path + ' failed: ' + status);
+            }
+            const clearEvents = syncTreeAckUserWrite(repo.serverSyncTree_, writeId, !success);
+            eventQueueRaiseEventsForChangedPath(repo.eventQueue_, path, clearEvents);
+            repoCallOnCompleteCallback(repo, onComplete, status, errorReason);
+        });
+        const affectedPath = repoAbortTransactions(repo, path);
+        repoRerunTransactions(repo, affectedPath);
+        // We queued the events above, so just flush the queue here
+        eventQueueRaiseEventsForChangedPath(repo.eventQueue_, affectedPath, []);
+    }
     /**
      * Applies all of the changes stored up in the onDisconnect_ tree.
      */
@@ -16511,6 +16574,26 @@ var app = (function () {
             prefix = repo.persistentConnection_.id + ':';
         }
         log(prefix, ...varArgs);
+    }
+    function repoCallOnCompleteCallback(repo, callback, status, errorReason) {
+        if (callback) {
+            exceptionGuard(() => {
+                if (status === 'ok') {
+                    callback(null);
+                }
+                else {
+                    const code = (status || 'error').toUpperCase();
+                    let message = code;
+                    if (errorReason) {
+                        message += ': ' + errorReason;
+                    }
+                    const error = new Error(message);
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    error.code = code;
+                    callback(error);
+                }
+            });
+        }
     }
     /**
      * @param excludeSets - A specific set to exclude
@@ -17338,6 +17421,44 @@ var app = (function () {
         return new ReferenceImpl(parent._repo, pathChild(parent._path, path));
     }
     /**
+     * Writes data to this Database location.
+     *
+     * This will overwrite any data at this location and all child locations.
+     *
+     * The effect of the write will be visible immediately, and the corresponding
+     * events ("value", "child_added", etc.) will be triggered. Synchronization of
+     * the data to the Firebase servers will also be started, and the returned
+     * Promise will resolve when complete. If provided, the `onComplete` callback
+     * will be called asynchronously after synchronization has finished.
+     *
+     * Passing `null` for the new value is equivalent to calling `remove()`; namely,
+     * all data at this location and all child locations will be deleted.
+     *
+     * `set()` will remove any priority stored at this location, so if priority is
+     * meant to be preserved, you need to use `setWithPriority()` instead.
+     *
+     * Note that modifying data with `set()` will cancel any pending transactions
+     * at that location, so extreme care should be taken if mixing `set()` and
+     * `transaction()` to modify the same data.
+     *
+     * A single `set()` will generate a single "value" event at the location where
+     * the `set()` was performed.
+     *
+     * @param ref - The location to write to.
+     * @param value - The value to be written (string, number, boolean, object,
+     *   array, or null).
+     * @returns Resolves when write to server is complete.
+     */
+    function set(ref, value) {
+        ref = getModularInstance(ref);
+        validateWritablePath('set', ref._path);
+        validateFirebaseDataArg('set', value, ref._path, false);
+        const deferred = new Deferred();
+        repoSetWithPriority(ref._repo, ref._path, value, 
+        /*priority=*/ null, deferred.wrapCallback(() => { }));
+        return deferred.promise;
+    }
+    /**
      * Gets the most up-to-date result for this query.
      *
      * @param query - The query to run.
@@ -17588,6 +17709,10 @@ var app = (function () {
     	let t4;
     	let a;
     	let t6;
+    	let t7;
+    	let button;
+    	let mounted;
+    	let dispose;
 
     	const block = {
     		c: function create() {
@@ -17602,13 +17727,16 @@ var app = (function () {
     			a = element("a");
     			a.textContent = "Svelte tutorial";
     			t6 = text(" to learn\n    how to build Svelte apps.");
+    			t7 = space();
+    			button = element("button");
     			attr_dev(h1, "class", "svelte-1e9puaw");
-    			add_location(h1, file, 24, 2, 580);
+    			add_location(h1, file, 78, 2, 2866);
     			attr_dev(a, "href", "https://svelte.dev/tutorial");
-    			add_location(a, file, 26, 14, 623);
-    			add_location(p, file, 25, 2, 605);
+    			add_location(a, file, 80, 14, 2909);
+    			add_location(p, file, 79, 2, 2891);
+    			add_location(button, file, 83, 2, 3015);
     			attr_dev(main, "class", "svelte-1e9puaw");
-    			add_location(main, file, 23, 0, 571);
+    			add_location(main, file, 77, 0, 2857);
     		},
     		l: function claim(nodes) {
     			throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
@@ -17624,6 +17752,13 @@ var app = (function () {
     			append_dev(p, t4);
     			append_dev(p, a);
     			append_dev(p, t6);
+    			append_dev(main, t7);
+    			append_dev(main, button);
+
+    			if (!mounted) {
+    				dispose = listen_dev(button, "click", /*schedule*/ ctx[1], false, false, false);
+    				mounted = true;
+    			}
     		},
     		p: function update(ctx, [dirty]) {
     			if (dirty & /*name*/ 1) set_data_dev(t1, /*name*/ ctx[0]);
@@ -17632,6 +17767,8 @@ var app = (function () {
     		o: noop,
     		d: function destroy(detaching) {
     			if (detaching) detach_dev(main);
+    			mounted = false;
+    			dispose();
     		}
     	};
 
@@ -17651,19 +17788,80 @@ var app = (function () {
     	validate_slots('App', slots, []);
     	let { name } = $$props;
 
-    	onMount(() => {
-    		const dbRef = ref(getDatabase(app$1));
+    	function schedule() {
+    		let courses = [];
+    		const dbRef = ref(getDatabase());
 
-    		get(child(dbRef, `website`)).then(snapshot => {
+    		get(child(dbRef, `schedule`)).then(snapshot => {
     			if (snapshot.exists()) {
     				console.log(snapshot.val());
+    				let snapshotVal = snapshot.val();
+
+    				for (let index = 0; index < snapshotVal.length; index++) {
+    					let course = snapshotVal[index];
+    					let ordersArray = course.orders;
+
+    					for (let index = 0; index < ordersArray.length; index++) {
+    						let orderId = ordersArray[index];
+
+    						function parentFunc() {
+    							let scopedCourse = course;
+    							let scopedOrderId = orderId;
+    							let newCourseEntry = {};
+    							newCourseEntry.destination = scopedCourse.destination;
+    							newCourseEntry[scopedOrderId] = {};
+
+    							function childFunc(snapshot) {
+    								if (snapshot.exists()) {
+    									let orderItems = snapshot.val();
+
+    									for (let index = 0; index < orderItems.length; index++) {
+    										let itemId = orderItems[index];
+    										newCourseEntry[scopedOrderId][itemId] = {};
+
+    										get(child(dbRef, `items/${itemId}/model`)).then(snapshot => {
+    											if (snapshot.exists()) {
+    												newCourseEntry[scopedOrderId][itemId].model = snapshot.val();
+    											}
+    										});
+
+    										get(child(dbRef, `items/${itemId}/materials`)).then(snapshot => {
+    											if (snapshot.exists()) {
+    												newCourseEntry[scopedOrderId][itemId].materials = snapshot.val();
+    											}
+    										});
+
+    										setTimeout(
+    											() => {
+    												courses.push(newCourseEntry);
+    											},
+    											10000
+    										);
+    									}
+    								}
+    							}
+
+    							return childFunc;
+    						}
+
+    						// let childFunc = parentFunc()
+    						get(child(dbRef, `allOrders/${orderId}/items`)).then(parentFunc());
+    					}
+    				}
     			} else {
     				console.log("No data available");
     			}
     		}).catch(error => {
     			console.error(error);
     		});
-    	});
+
+    		setTimeout(
+    			() => {
+    				eel.dump_orders(courses);
+    			},
+    			15000
+    		);
+    	}
 
     	const writable_props = ['name'];
 
@@ -17683,7 +17881,9 @@ var app = (function () {
     		getDatabase,
     		ref,
     		get,
-    		child
+    		child,
+    		set,
+    		schedule
     	});
 
     	$$self.$inject_state = $$props => {
@@ -17694,7 +17894,7 @@ var app = (function () {
     		$$self.$inject_state($$props.$$inject);
     	}
 
-    	return [name];
+    	return [name, schedule];
     }
 
     class App extends SvelteComponentDev {
