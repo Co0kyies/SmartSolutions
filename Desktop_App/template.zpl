@@ -14,13 +14,16 @@
 
 ^FX Second section with recipient address and permit information.
 ^CFA,30
-^FO150,300^FDHeight: ^FS
-^FO150,340^FDWidth: ^FS
-^FO150,380^FDDecor: ^FS
+^FO150,300^FDCourseId:  {barcodeDict["CourseId"]}^FS
+^FO150,340^FDOrderId: {barcodeDict["OrderId"]}^FS
+^FO150,380^FDItemModel: {barcodeDict["ItemModel"]}^FS
+^FO150,420^FDHeight: {barcodeDict["Height"]}^FS
+^FO150,460^FDWidth: {barcodeDict["Width"]}^FS
+^FO150,500^FDDecor: {barcodeDict["Decor"]}^FS
 ^CFA,15
-^FO50,500^GB700,3,3^FS
+^FO50,550^GB700,3,3^FS
 
 ^FX Third section with bar code.
 ^BY5,2,270
-^FO100,550^BC^FD12345678^FS
+^FO100,600^BC^FD{barcode}^FS
 ^XZ

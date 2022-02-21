@@ -1,11 +1,11 @@
 {
     "allBarcodes": [],
     "barcode": {
-        "CourseId": 0,
+        "Course": 0,
         "OrderId": 0,
         "ItemModel": "Aura 2 врати",
-        "heigh": 0,
-        "widht": 0,
-        "decor": 0
+        "Hight": 0,
+        "Widht": 0,
+        "Decor": 0
     }
 }
