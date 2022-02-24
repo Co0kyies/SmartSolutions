@@ -19,13 +19,18 @@
     function testReturnJS(n) {
       console.log(`Got this from python: ${n}`);
     }
-    eel.test_returns_py(testReturnJS);
+    console.log(eel.test_returns_py());
+    eel.test_returns_py()(testReturnJS);
   }
 </script>
 
 <Header
   on:buttonPressed={() => {
     loading = true;
+  }}
+  on:loadingCompleted={() => {
+    loading = false;
+    loadingCompleted = true;
   }}
 />
 <Nav {selectedOption} />

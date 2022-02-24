@@ -68,8 +68,11 @@
       .catch((error) => {
         console.error(error);
       });
+    function dispatchLoadingCompleted(n) {
+      dispatch("loadingCompleted");
+    }
     setTimeout(() => {
-      eel.dump_orders(courses);
+      eel.dump_orders(courses)(dispatchLoadingCompleted);
     }, 15000);
   }
   let btn;

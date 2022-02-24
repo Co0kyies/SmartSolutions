@@ -5,7 +5,7 @@ import shutil
 import json
 import uuid
 
-eel.init("web/public")
+# eel.init("web/public")
 
 
 def runPDFtoPrinter():
@@ -17,10 +17,9 @@ def runPDFtoPrinter():
 @eel.expose
 def dump_orders(data):
     with open("./JSON_DB/orders.json", "w") as write_file:
-        print("Funcion Activated")
         json.dump(data, write_file)
     make_barcodes()
-    eel.my_javascript_function()
+    return 1
 
 
 @eel.expose
@@ -34,6 +33,7 @@ def make_barcodes():
         barcodes = json.load(read_barcodes)
     with open("./JSON_DB/orders.json", "r") as read_file:
         courses = json.load(read_file)
+        barcode_num = 0
         for course in courses:
             destination = course["destination"]
             for key in course:
@@ -42,9 +42,15 @@ def make_barcodes():
                     for itemId in course[order_id]:
                         model = course[order_id][itemId]["model"]
                         for material in course[order_id][itemId]["materials"]:
-                            barcode = str(uuid.uuid4())
+                            barcode_num += 1
+                            barcode_lenght = 9
+                            barcode = ""
+                            barcode_str = str(barcode_num)
+                            for x in range(barcode_lenght - len(barcode_str)):
+                                barcode += "0"
+                            barcode += barcode_str
                             newDict = {
-                                "Hight": material["y"],
+                                "Heigh": material["y"],
                                 "Widht": material["x"],
                                 "Decor": material["decor"],
                                 "Course": destination,
@@ -56,7 +62,68 @@ def make_barcodes():
     with open("./JSON_DB/barcodes.json", "w") as write_barcodes:
         json.dump(barcodes, write_barcodes)
                         
+def prepare_cutting_machine():
+    prepared_data = {}
+    with open("./JSON_DB/barcodes.json", "r") as read_barcodes:
+        barcodesJSON = json.load(read_barcodes)
+        allBarcodes = barcodesJSON["allBarcodes"]
+        for barcode in allBarcodes:
+            barcode_obj = barcodesJSON[barcode]
+            course = barcode_obj["Course"]
+            try:
+                prepared_data[course]
+            except:
+                prepared_data[course] = {}
+            decor = barcode_obj["Decor"]
+            try:
+                prepared_data[course][decor]
+            except:
+                prepared_data[course][decor] = []            
+            widht = barcode_obj["Widht"]
+            height = barcode_obj["Heigh"]
+            square_centimeters = int(widht) * int(height)
 
+            printing_sets = prepared_data[course][decor]
+            max_square_centimeters =  250 * 300
+            make_new_printing_set = True
+            for printing_set in printing_sets:
+                # printing_set template
+                    # printing_set = {
+                    #     squareCentimeters: 30
+                    #     barcodes: []
+                    # }
+                current_square_centimeters = printing_set["squareCentimeters"]
+                if square_centimeters + current_square_centimeters < max_square_centimeters:
+                    printing_set["squareCentimeters"] += square_centimeters
+                    printing_set["barcodes"].append(barcode)
+                    make_new_printing_set = False
+                    break
+            if make_new_printing_set:
+                printing_sets.append(
+                    {
+                        "squareCentimeters": square_centimeters,
+                        "barcodes": [barcode]
+                    }
+                )
+    with open("./JSON_DB/cutting_machine.json", "w") as write_cutting_machine:
+        json.dump(prepared_data, write_cutting_machine)
+
+@eel.expose
+def get_printing_set():
+    with open("./JSON_DB/barcodes.json", "r") as read_file:
+        cutting_machine_JSON = json.load(read_file)
+        for course_key in cutting_machine_JSON:
+            course_obj = cutting_machine_JSON[course_key]
+            for decor_key in course_obj:
+                decor_obj = course_obj[decor_key]
+                printing_set = decor_obj[0]
+                
+                
+                
+
+
+    with open("./JSON_DB/orders.json", "w") as write_file:
+        json.dump(data, write_file)
 
 def get_PDFs_labelry():
     with open("./JSON_DB/barcodes.json", "r") as read_barcodes:
@@ -95,5 +162,16 @@ def delete_all_JSON():
     delete_barcodes()
     delete_orders()
 
-delete_all_JSON()
-eel.start("index.html")
+# prepare_cutting_machine()
+
+def test_func():
+    for x in range(100):
+        for y in range(1000, 3000):
+            if y == 1500:
+                break
+            print(x, y)
+
+test_func()
+# delete_all_JSON()
+# eel.start("index.html")
+
