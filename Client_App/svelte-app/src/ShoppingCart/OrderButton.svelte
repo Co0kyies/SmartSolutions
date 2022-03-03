@@ -56,7 +56,7 @@
   const monthMap = {
     1: "January",
     2: "February",
-    3: "Martch ",
+    3: "March",
     4: "April",
     5: "May",
     6: "June",
