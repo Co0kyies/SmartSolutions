@@ -83,3 +83,7 @@ button:focus {
 .theme-background {
   background-color: rgb(119, 0, 0);
 }
+
+.font-spartan{
+  font-family: 'League Spartan', sans-serif;
+}

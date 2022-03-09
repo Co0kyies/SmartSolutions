@@ -22,7 +22,7 @@
 
 <header>
   <div id="logo">
-    <a href="/"><h1>Wardrobes</h1></a>
+    <a href="/" class="font-spartan"><h1>Гардероби</h1></a>
   </div>
   <div class="login-greetings">
     {#if $authUser}
@@ -31,9 +31,6 @@
           <Icon name="person-circle" />
           {$user["email"]}
         </DropdownToggle><DropdownMenu>
-          <DropdownItem>
-            <p>История на покупки</p>
-          </DropdownItem>
           <DropdownItem on:click={dispachSignOutEvenet}>
             <p>Излез от профила си</p>
           </DropdownItem>
@@ -68,6 +65,7 @@
   }
   #logo h1 {
     font-size: 4rem;
+    font-weight: 600;
   }
   .login-greetings {
     position: absolute;

@@ -28,7 +28,7 @@
       }}
     >
       <div class="card">
-        <img src="./img/ED_3doors.jpg" alt="" />
+        <img src="./img/ED_2doors.jpg" alt="" />
         <p>Гардероби с 2 врати</p>
       </div>
     </a>

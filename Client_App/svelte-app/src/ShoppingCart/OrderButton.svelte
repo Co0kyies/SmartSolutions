@@ -713,11 +713,9 @@
         color="success"
         on:click={() => {
           makeAnOrder(false);
-        }}>Do Something</Button
+        }}>Завърши поръчка</Button
       >
       <Button color="secondary" on:click={toggle}>Отмени</Button>
-      <Button color="warning" on:click={simulateOrder}>Симулирай</Button>
-      <Button color="danger" on:click={deleteAllDatabase} />
     </ModalFooter>
   </Modal>
 </div>
