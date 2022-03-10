@@ -108,6 +108,7 @@
   }
 
   .option {
+    position: relative;
     cursor: pointer;
     font-size: 1.3rem;
     color: white;

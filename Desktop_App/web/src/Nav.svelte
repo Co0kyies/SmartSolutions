@@ -1,5 +1,7 @@
 <script>
-  export let selectedOption;
+  let selectedOption;
+  import { createEventDispatcher } from "svelte";
+  let dispatch = createEventDispatcher();
 </script>
 
 <nav>
@@ -7,7 +9,7 @@
     {#if selectedOption == optionName}
       <div
         on:click={() => {
-          selectedOption = optionName;
+          dispatch("optionChange", { option: selectedOption });
         }}
         class="option selected"
       >
@@ -17,6 +19,7 @@
       <div
         on:click={() => {
           selectedOption = optionName;
+          dispatch("optionChange", { option: selectedOption });
         }}
         class="option"
       >

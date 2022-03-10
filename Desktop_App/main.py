@@ -4,9 +4,17 @@ import requests
 import shutil
 import json
 import uuid
+import sqlite3
+import os
+import glob
+eel.init("web/public")
 
-# eel.init("web/public")
-
+# utilities
+def delete_all_files_in_folder(dir):
+    filelist = glob.glob(os.path.join(dir, "*"))
+    for f in filelist:
+        os.remove(f)
+# utilities
 
 def runPDFtoPrinter():
     p = subprocess.Popen(["powershell.exe", 
@@ -19,12 +27,11 @@ def dump_orders(data):
     with open("./JSON_DB/orders.json", "w") as write_file:
         json.dump(data, write_file)
     make_barcodes()
+    prepare_cutting_machine()
+    create_cutting_machine_sql()
+    get_PDFs_labelry()
     return 1
 
-
-@eel.expose
-def test_returns_py():
-    return 1
 
 
 
@@ -108,22 +115,54 @@ def prepare_cutting_machine():
     with open("./JSON_DB/cutting_machine.json", "w") as write_cutting_machine:
         json.dump(prepared_data, write_cutting_machine)
 
-@eel.expose
-def get_printing_set():
-    with open("./JSON_DB/barcodes.json", "r") as read_file:
+def create_cutting_machine_sql():
+    connection = sqlite3.connect("./SQLite_DB/cutting_machine.db")
+    cursor = connection.cursor()
+    cursor.execute("CREATE TABLE printing_sets(barcode text Primary Key, decor text, course text, printing_set_id text)")
+    connection.commit()
+    with open("./JSON_DB/cutting_machine.json", "r") as read_file:
         cutting_machine_JSON = json.load(read_file)
         for course_key in cutting_machine_JSON:
             course_obj = cutting_machine_JSON[course_key]
             for decor_key in course_obj:
                 decor_obj = course_obj[decor_key]
-                printing_set = decor_obj[0]
-                
-                
-                
+                for printing_set in decor_obj:
+                    printing_set_unique_id = str(uuid.uuid4())
+                    barcodes = printing_set["barcodes"]
+                    for barcode in barcodes:
+                        cursor.executemany("INSERT INTO printing_sets VALUES (?,?,?,?)", [(str(barcode), decor_key, course_key, printing_set_unique_id)])
+    connection.commit()
+    connection.close()
 
+@eel.expose
+def get_printing_set():
+    connection = sqlite3.connect("./SQLite_DB/cutting_machine.db")
+    cursor = connection.cursor()
+    printing_sets = [printing_set[0] for printing_set in cursor.execute("SELECT DISTINCT printing_set_id from printing_sets;")]
+    printing_set = printing_sets[0]
+    decors = cursor.execute("SELECT DISTINCT decor FROM printing_sets WHERE printing_set_id=:p", {"p":printing_set})
+    for decor_touple in decors:
+        for item in decor_touple:
+            decor = item
+    def prepare_PDFs():
+        barcodes = [barcode_touple[0] for barcode_touple in cursor.execute("SELECT barcode FROM printing_sets WHERE printing_set_id=:p", {"p":printing_set})]
+        for barcode in barcodes:
+            os.rename(f"./pdf_files/{barcode}.pdf", f"./pdf_to_print/{barcode}.pdf")
+        # runPDFtoPrinter()
+    prepare_PDFs()
+    cursor.execute("DELETE FROM printing_sets WHERE printing_set_id=:p", {"p":printing_set})
+    connection.commit()
+    connection.close()
+    if len(printing_sets) > 1:
+        return [decor, 1]
+    else:
+        return [decor, 0]
 
-    with open("./JSON_DB/orders.json", "w") as write_file:
-        json.dump(data, write_file)
+@eel.expose
+def find_barcode(barcode):
+    with open("./JSON_DB/barcodes.json", "r") as read_barcodes:
+        barcodesJSON = json.load(read_barcodes)
+        return barcodesJSON[barcode]
 
 def get_PDFs_labelry():
     with open("./JSON_DB/barcodes.json", "r") as read_barcodes:
@@ -132,7 +171,7 @@ def get_PDFs_labelry():
             if key != "allBarcodes":
                 barcode = key
                 barcodeDict = barcodes[key]
-                hight = barcodeDict["Hight"]
+                hight = barcodeDict["Heigh"]
                 widht = barcodeDict["Widht"]
                 decor = barcodeDict["Decor"]
                 course_id = barcodeDict["Course"]
@@ -162,16 +201,22 @@ def delete_all_JSON():
     delete_barcodes()
     delete_orders()
 
-# prepare_cutting_machine()
+def delete_sqlite_db():
+    try:
+        os.remove("./SQLite_DB/cutting_machine.db")
+    except:
+        print("Hi I don't do anything")
+def delete_PDF_files():
+    try:
+        delete_all_files_in_folder("./pdf_files")
+    except:
+        print("Hi I don't do anything")
+    try: 
+        delete_all_files_in_folder("./pdf_to_print")
+    except:
+        print("Hi I don't do anything")
 
-def test_func():
-    for x in range(100):
-        for y in range(1000, 3000):
-            if y == 1500:
-                break
-            print(x, y)
-
-test_func()
-# delete_all_JSON()
-# eel.start("index.html")
-
+delete_all_JSON()
+delete_sqlite_db()
+delete_PDF_files()
+eel.start("index.html")

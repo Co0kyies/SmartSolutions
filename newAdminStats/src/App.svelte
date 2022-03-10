@@ -19,20 +19,11 @@
         icon: "bag-fill",
         subMenus: [{ type: "Всички Продажби" }, { type: "Продажби по модели" }],
       },
-      {
-        option: "Матеряли",
-        icon: "tools",
-        subMenus: [{ type: "BarChart" }, { type: "LineChart" }],
-      },
-      {
-        option: "Служители",
-        icon: "person-badge",
-        subMenus: [{ type: "BarChart" }, { type: "LineChart" }],
-      },
+
       {
         option: "Клиенти",
         icon: "person",
-        subMenus: [{ type: "BarChart" }, { type: "LineChart" }],
+        subMenus: [{ type: "Клиенти" }],
       },
     ]}
     main="true"

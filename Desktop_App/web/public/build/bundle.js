@@ -4,6 +4,7 @@ var app = (function () {
     'use strict';
 
     function noop() { }
+    const identity = x => x;
     function add_location(element, file, line, column, char) {
         element.__svelte_meta = {
             loc: { file, line, column, char }
@@ -66,6 +67,14 @@ var app = (function () {
     }
     function children(element) {
         return Array.from(element.childNodes);
+    }
+    function set_style(node, key, value, important) {
+        if (value === null) {
+            node.style.removeProperty(key);
+        }
+        else {
+            node.style.setProperty(key, value, important ? 'important' : '');
+        }
     }
     function custom_event(type, detail, bubbles = false) {
         const e = document.createEvent('CustomEvent');
@@ -180,6 +189,19 @@ var app = (function () {
     }
     const outroing = new Set();
     let outros;
+    function group_outros() {
+        outros = {
+            r: 0,
+            c: [],
+            p: outros // parent group
+        };
+    }
+    function check_outros() {
+        if (!outros.r) {
+            run_all(outros.c);
+        }
+        outros = outros.p;
+    }
     function transition_in(block, local) {
         if (block && block.i) {
             outroing.delete(block);
@@ -3345,6 +3367,27 @@ var app = (function () {
         // Check for the presence of a couple WinRT globals
         return typeof Windows === 'object' && typeof Windows.UI === 'object';
     };
+    /**
+     * Converts a server error code to a Javascript Error
+     */
+    function errorForServerCode(code, query) {
+        let reason = 'Unknown Error';
+        if (code === 'too_big') {
+            reason =
+                'The data requested exceeds the maximum size ' +
+                    'that can be accessed with a single request.';
+        }
+        else if (code === 'permission_denied') {
+            reason = "Client doesn't have permission to access the desired data.";
+        }
+        else if (code === 'unavailable') {
+            reason = 'The service is unavailable';
+        }
+        const error = new Error(code + ' at ' + query._path.toString() + ': ' + reason);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        error.code = code.toUpperCase();
+        return error;
+    }
     /**
      * Used to test for integer-looking strings
      */
@@ -9827,6 +9870,39 @@ var app = (function () {
      * See the License for the specific language governing permissions and
      * limitations under the License.
      */
+    class ListenComplete {
+        constructor(source, path) {
+            this.source = source;
+            this.path = path;
+            /** @inheritDoc */
+            this.type = OperationType.LISTEN_COMPLETE;
+        }
+        operationForChild(childName) {
+            if (pathIsEmpty(this.path)) {
+                return new ListenComplete(this.source, newEmptyPath());
+            }
+            else {
+                return new ListenComplete(this.source, pathPopFront(this.path));
+            }
+        }
+    }
+
+    /**
+     * @license
+     * Copyright 2017 Google LLC
+     *
+     * Licensed under the Apache License, Version 2.0 (the "License");
+     * you may not use this file except in compliance with the License.
+     * You may obtain a copy of the License at
+     *
+     *   http://www.apache.org/licenses/LICENSE-2.0
+     *
+     * Unless required by applicable law or agreed to in writing, software
+     * distributed under the License is distributed on an "AS IS" BASIS,
+     * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+     * See the License for the specific language governing permissions and
+     * limitations under the License.
+     */
     class Overwrite {
         constructor(source, path, snap) {
             this.source = source;
@@ -11660,6 +11736,9 @@ var app = (function () {
             return this.query_;
         }
     }
+    function viewGetServerCache(view) {
+        return view.viewCache_.serverCache.getNode();
+    }
     function viewGetCompleteNode(view) {
         return viewCacheGetCompleteEventSnap(view.viewCache_);
     }
@@ -11675,6 +11754,49 @@ var app = (function () {
             }
         }
         return null;
+    }
+    function viewIsEmpty(view) {
+        return view.eventRegistrations_.length === 0;
+    }
+    function viewAddEventRegistration(view, eventRegistration) {
+        view.eventRegistrations_.push(eventRegistration);
+    }
+    /**
+     * @param eventRegistration - If null, remove all callbacks.
+     * @param cancelError - If a cancelError is provided, appropriate cancel events will be returned.
+     * @returns Cancel events, if cancelError was provided.
+     */
+    function viewRemoveEventRegistration(view, eventRegistration, cancelError) {
+        const cancelEvents = [];
+        if (cancelError) {
+            assert(eventRegistration == null, 'A cancel should cancel all event registrations.');
+            const path = view.query._path;
+            view.eventRegistrations_.forEach(registration => {
+                const maybeEvent = registration.createCancelEvent(cancelError, path);
+                if (maybeEvent) {
+                    cancelEvents.push(maybeEvent);
+                }
+            });
+        }
+        if (eventRegistration) {
+            let remaining = [];
+            for (let i = 0; i < view.eventRegistrations_.length; ++i) {
+                const existing = view.eventRegistrations_[i];
+                if (!existing.matches(eventRegistration)) {
+                    remaining.push(existing);
+                }
+                else if (eventRegistration.hasAnyCallback()) {
+                    // We're removing just this one
+                    remaining = remaining.concat(view.eventRegistrations_.slice(i + 1));
+                    break;
+                }
+            }
+            view.eventRegistrations_ = remaining;
+        }
+        else {
+            view.eventRegistrations_ = [];
+        }
+        return cancelEvents;
     }
     /**
      * Applies the given Operation, updates our cache, and returns the appropriate events.
@@ -11692,6 +11814,20 @@ var app = (function () {
             !oldViewCache.serverCache.isFullyInitialized(), 'Once a server snap is complete, it should never go back');
         view.viewCache_ = result.viewCache;
         return viewGenerateEventsForChanges_(view, result.changes, result.viewCache.eventCache.getNode(), null);
+    }
+    function viewGetInitialEvents(view, registration) {
+        const eventSnap = view.viewCache_.eventCache;
+        const initialChanges = [];
+        if (!eventSnap.getNode().isLeafNode()) {
+            const eventNode = eventSnap.getNode();
+            eventNode.forEachChild(PRIORITY_INDEX, (key, childNode) => {
+                initialChanges.push(changeChildAdded(key, childNode));
+            });
+        }
+        if (eventSnap.isFullyInitialized()) {
+            initialChanges.push(changeValue(eventSnap.getNode()));
+        }
+        return viewGenerateEventsForChanges_(view, initialChanges, eventSnap.getNode(), registration);
     }
     function viewGenerateEventsForChanges_(view, changes, eventCache, eventRegistration) {
         const registrations = eventRegistration
@@ -11742,6 +11878,13 @@ var app = (function () {
         assert(!referenceConstructor$1, '__referenceConstructor has already been defined');
         referenceConstructor$1 = val;
     }
+    function syncPointGetReferenceConstructor() {
+        assert(referenceConstructor$1, 'Reference.ts has not been loaded');
+        return referenceConstructor$1;
+    }
+    function syncPointIsEmpty(syncPoint) {
+        return syncPoint.views.size === 0;
+    }
     function syncPointApplyOperation(syncPoint, operation, writesCache, optCompleteServerCache) {
         const queryId = operation.source.queryId;
         if (queryId !== null) {
@@ -11790,6 +11933,82 @@ var app = (function () {
         return view;
     }
     /**
+     * Add an event callback for the specified query.
+     *
+     * @param query
+     * @param eventRegistration
+     * @param writesCache
+     * @param serverCache - Complete server cache, if we have it.
+     * @param serverCacheComplete
+     * @returns Events to raise.
+     */
+    function syncPointAddEventRegistration(syncPoint, query, eventRegistration, writesCache, serverCache, serverCacheComplete) {
+        const view = syncPointGetView(syncPoint, query, writesCache, serverCache, serverCacheComplete);
+        if (!syncPoint.views.has(query._queryIdentifier)) {
+            syncPoint.views.set(query._queryIdentifier, view);
+        }
+        // This is guaranteed to exist now, we just created anything that was missing
+        viewAddEventRegistration(view, eventRegistration);
+        return viewGetInitialEvents(view, eventRegistration);
+    }
+    /**
+     * Remove event callback(s).  Return cancelEvents if a cancelError is specified.
+     *
+     * If query is the default query, we'll check all views for the specified eventRegistration.
+     * If eventRegistration is null, we'll remove all callbacks for the specified view(s).
+     *
+     * @param eventRegistration - If null, remove all callbacks.
+     * @param cancelError - If a cancelError is provided, appropriate cancel events will be returned.
+     * @returns removed queries and any cancel events
+     */
+    function syncPointRemoveEventRegistration(syncPoint, query, eventRegistration, cancelError) {
+        const queryId = query._queryIdentifier;
+        const removed = [];
+        let cancelEvents = [];
+        const hadCompleteView = syncPointHasCompleteView(syncPoint);
+        if (queryId === 'default') {
+            // When you do ref.off(...), we search all views for the registration to remove.
+            for (const [viewQueryId, view] of syncPoint.views.entries()) {
+                cancelEvents = cancelEvents.concat(viewRemoveEventRegistration(view, eventRegistration, cancelError));
+                if (viewIsEmpty(view)) {
+                    syncPoint.views.delete(viewQueryId);
+                    // We'll deal with complete views later.
+                    if (!view.query._queryParams.loadsAllData()) {
+                        removed.push(view.query);
+                    }
+                }
+            }
+        }
+        else {
+            // remove the callback from the specific view.
+            const view = syncPoint.views.get(queryId);
+            if (view) {
+                cancelEvents = cancelEvents.concat(viewRemoveEventRegistration(view, eventRegistration, cancelError));
+                if (viewIsEmpty(view)) {
+                    syncPoint.views.delete(queryId);
+                    // We'll deal with complete views later.
+                    if (!view.query._queryParams.loadsAllData()) {
+                        removed.push(view.query);
+                    }
+                }
+            }
+        }
+        if (hadCompleteView && !syncPointHasCompleteView(syncPoint)) {
+            // We removed our last complete view.
+            removed.push(new (syncPointGetReferenceConstructor())(query._repo, query._path));
+        }
+        return { removed, events: cancelEvents };
+    }
+    function syncPointGetQueryViews(syncPoint) {
+        const result = [];
+        for (const view of syncPoint.views.values()) {
+            if (!view.query._queryParams.loadsAllData()) {
+                result.push(view);
+            }
+        }
+        return result;
+    }
+    /**
      * @param path - The path to the desired complete snapshot
      * @returns A complete cache, if it exists
      */
@@ -11799,6 +12018,30 @@ var app = (function () {
             serverCache = serverCache || viewGetCompleteServerCache(view, path);
         }
         return serverCache;
+    }
+    function syncPointViewForQuery(syncPoint, query) {
+        const params = query._queryParams;
+        if (params.loadsAllData()) {
+            return syncPointGetCompleteView(syncPoint);
+        }
+        else {
+            const queryId = query._queryIdentifier;
+            return syncPoint.views.get(queryId);
+        }
+    }
+    function syncPointViewExistsForQuery(syncPoint, query) {
+        return syncPointViewForQuery(syncPoint, query) != null;
+    }
+    function syncPointHasCompleteView(syncPoint) {
+        return syncPointGetCompleteView(syncPoint) != null;
+    }
+    function syncPointGetCompleteView(syncPoint) {
+        for (const view of syncPoint.views.values()) {
+            if (view.query._queryParams.loadsAllData()) {
+                return view;
+            }
+        }
+        return null;
     }
 
     /**
@@ -11822,6 +12065,14 @@ var app = (function () {
         assert(!referenceConstructor, '__referenceConstructor has already been defined');
         referenceConstructor = val;
     }
+    function syncTreeGetReferenceConstructor() {
+        assert(referenceConstructor, 'Reference.ts has not been loaded');
+        return referenceConstructor;
+    }
+    /**
+     * Static tracker for next query tag.
+     */
+    let syncTreeNextQueryTag_ = 1;
     /**
      * SyncTree is the central class for managing event callback registration, data caching, views
      * (query processing), and event generation.  There are typically two SyncTree instances for
@@ -11921,6 +12172,109 @@ var app = (function () {
         return syncTreeApplyOperationToSyncPoints_(syncTree, new Merge(newOperationSourceServer(), path, changeTree));
     }
     /**
+     * Apply a listen complete for a query
+     *
+     * @returns Events to raise.
+     */
+    function syncTreeApplyListenComplete(syncTree, path) {
+        return syncTreeApplyOperationToSyncPoints_(syncTree, new ListenComplete(newOperationSourceServer(), path));
+    }
+    /**
+     * Apply a listen complete for a tagged query
+     *
+     * @returns Events to raise.
+     */
+    function syncTreeApplyTaggedListenComplete(syncTree, path, tag) {
+        const queryKey = syncTreeQueryKeyForTag_(syncTree, tag);
+        if (queryKey) {
+            const r = syncTreeParseQueryKey_(queryKey);
+            const queryPath = r.path, queryId = r.queryId;
+            const relativePath = newRelativePath(queryPath, path);
+            const op = new ListenComplete(newOperationSourceServerTaggedQuery(queryId), relativePath);
+            return syncTreeApplyTaggedOperation_(syncTree, queryPath, op);
+        }
+        else {
+            // We've already removed the query. No big deal, ignore the update
+            return [];
+        }
+    }
+    /**
+     * Remove event callback(s).
+     *
+     * If query is the default query, we'll check all queries for the specified eventRegistration.
+     * If eventRegistration is null, we'll remove all callbacks for the specified query/queries.
+     *
+     * @param eventRegistration - If null, all callbacks are removed.
+     * @param cancelError - If a cancelError is provided, appropriate cancel events will be returned.
+     * @returns Cancel events, if cancelError was provided.
+     */
+    function syncTreeRemoveEventRegistration(syncTree, query, eventRegistration, cancelError) {
+        // Find the syncPoint first. Then deal with whether or not it has matching listeners
+        const path = query._path;
+        const maybeSyncPoint = syncTree.syncPointTree_.get(path);
+        let cancelEvents = [];
+        // A removal on a default query affects all queries at that location. A removal on an indexed query, even one without
+        // other query constraints, does *not* affect all queries at that location. So this check must be for 'default', and
+        // not loadsAllData().
+        if (maybeSyncPoint &&
+            (query._queryIdentifier === 'default' ||
+                syncPointViewExistsForQuery(maybeSyncPoint, query))) {
+            const removedAndEvents = syncPointRemoveEventRegistration(maybeSyncPoint, query, eventRegistration, cancelError);
+            if (syncPointIsEmpty(maybeSyncPoint)) {
+                syncTree.syncPointTree_ = syncTree.syncPointTree_.remove(path);
+            }
+            const removed = removedAndEvents.removed;
+            cancelEvents = removedAndEvents.events;
+            // We may have just removed one of many listeners and can short-circuit this whole process
+            // We may also not have removed a default listener, in which case all of the descendant listeners should already be
+            // properly set up.
+            //
+            // Since indexed queries can shadow if they don't have other query constraints, check for loadsAllData(), instead of
+            // queryId === 'default'
+            const removingDefault = -1 !==
+                removed.findIndex(query => {
+                    return query._queryParams.loadsAllData();
+                });
+            const covered = syncTree.syncPointTree_.findOnPath(path, (relativePath, parentSyncPoint) => syncPointHasCompleteView(parentSyncPoint));
+            if (removingDefault && !covered) {
+                const subtree = syncTree.syncPointTree_.subtree(path);
+                // There are potentially child listeners. Determine what if any listens we need to send before executing the
+                // removal
+                if (!subtree.isEmpty()) {
+                    // We need to fold over our subtree and collect the listeners to send
+                    const newViews = syncTreeCollectDistinctViewsForSubTree_(subtree);
+                    // Ok, we've collected all the listens we need. Set them up.
+                    for (let i = 0; i < newViews.length; ++i) {
+                        const view = newViews[i], newQuery = view.query;
+                        const listener = syncTreeCreateListenerForView_(syncTree, view);
+                        syncTree.listenProvider_.startListening(syncTreeQueryForListening_(newQuery), syncTreeTagForQuery_(syncTree, newQuery), listener.hashFn, listener.onComplete);
+                    }
+                }
+            }
+            // If we removed anything and we're not covered by a higher up listen, we need to stop listening on this query
+            // The above block has us covered in terms of making sure we're set up on listens lower in the tree.
+            // Also, note that if we have a cancelError, it's already been removed at the provider level.
+            if (!covered && removed.length > 0 && !cancelError) {
+                // If we removed a default, then we weren't listening on any of the other queries here. Just cancel the one
+                // default. Otherwise, we need to iterate through and cancel each individual query
+                if (removingDefault) {
+                    // We don't tag default listeners
+                    const defaultTag = null;
+                    syncTree.listenProvider_.stopListening(syncTreeQueryForListening_(query), defaultTag);
+                }
+                else {
+                    removed.forEach((queryToRemove) => {
+                        const tagToRemove = syncTree.queryToTagMap.get(syncTreeMakeQueryKey_(queryToRemove));
+                        syncTree.listenProvider_.stopListening(syncTreeQueryForListening_(queryToRemove), tagToRemove);
+                    });
+                }
+            }
+            // Now, clear all of the tags we're tracking for the removed listens
+            syncTreeRemoveTags_(syncTree, removed);
+        }
+        return cancelEvents;
+    }
+    /**
      * Apply new server data for the specified tagged query.
      *
      * @returns Events to raise.
@@ -11958,6 +12312,67 @@ var app = (function () {
             // We've already removed the query. No big deal, ignore the update
             return [];
         }
+    }
+    /**
+     * Add an event callback for the specified query.
+     *
+     * @returns Events to raise.
+     */
+    function syncTreeAddEventRegistration(syncTree, query, eventRegistration) {
+        const path = query._path;
+        let serverCache = null;
+        let foundAncestorDefaultView = false;
+        // Any covering writes will necessarily be at the root, so really all we need to find is the server cache.
+        // Consider optimizing this once there's a better understanding of what actual behavior will be.
+        syncTree.syncPointTree_.foreachOnPath(path, (pathToSyncPoint, sp) => {
+            const relativePath = newRelativePath(pathToSyncPoint, path);
+            serverCache =
+                serverCache || syncPointGetCompleteServerCache(sp, relativePath);
+            foundAncestorDefaultView =
+                foundAncestorDefaultView || syncPointHasCompleteView(sp);
+        });
+        let syncPoint = syncTree.syncPointTree_.get(path);
+        if (!syncPoint) {
+            syncPoint = new SyncPoint();
+            syncTree.syncPointTree_ = syncTree.syncPointTree_.set(path, syncPoint);
+        }
+        else {
+            foundAncestorDefaultView =
+                foundAncestorDefaultView || syncPointHasCompleteView(syncPoint);
+            serverCache =
+                serverCache || syncPointGetCompleteServerCache(syncPoint, newEmptyPath());
+        }
+        let serverCacheComplete;
+        if (serverCache != null) {
+            serverCacheComplete = true;
+        }
+        else {
+            serverCacheComplete = false;
+            serverCache = ChildrenNode.EMPTY_NODE;
+            const subtree = syncTree.syncPointTree_.subtree(path);
+            subtree.foreachChild((childName, childSyncPoint) => {
+                const completeCache = syncPointGetCompleteServerCache(childSyncPoint, newEmptyPath());
+                if (completeCache) {
+                    serverCache = serverCache.updateImmediateChild(childName, completeCache);
+                }
+            });
+        }
+        const viewAlreadyExists = syncPointViewExistsForQuery(syncPoint, query);
+        if (!viewAlreadyExists && !query._queryParams.loadsAllData()) {
+            // We need to track a tag for this query
+            const queryKey = syncTreeMakeQueryKey_(query);
+            assert(!syncTree.queryToTagMap.has(queryKey), 'View does not exist, but we have a tag');
+            const tag = syncTreeGetNextQueryTag_();
+            syncTree.queryToTagMap.set(queryKey, tag);
+            syncTree.tagToQueryMap.set(tag, queryKey);
+        }
+        const writesCache = writeTreeChildWrites(syncTree.pendingWriteTree_, path);
+        let events = syncPointAddEventRegistration(syncPoint, query, eventRegistration, writesCache, serverCache, serverCacheComplete);
+        if (!viewAlreadyExists && !foundAncestorDefaultView) {
+            const view = syncPointViewForQuery(syncPoint, query);
+            events = events.concat(syncTreeSetupListener_(syncTree, query, view));
+        }
+        return events;
     }
     /**
      * Returns a complete cache, if we have one, of the data at a particular path. If the location does not have a
@@ -12081,6 +12496,46 @@ var app = (function () {
         }
         return events;
     }
+    function syncTreeCreateListenerForView_(syncTree, view) {
+        const query = view.query;
+        const tag = syncTreeTagForQuery_(syncTree, query);
+        return {
+            hashFn: () => {
+                const cache = viewGetServerCache(view) || ChildrenNode.EMPTY_NODE;
+                return cache.hash();
+            },
+            onComplete: (status) => {
+                if (status === 'ok') {
+                    if (tag) {
+                        return syncTreeApplyTaggedListenComplete(syncTree, query._path, tag);
+                    }
+                    else {
+                        return syncTreeApplyListenComplete(syncTree, query._path);
+                    }
+                }
+                else {
+                    // If a listen failed, kill all of the listeners here, not just the one that triggered the error.
+                    // Note that this may need to be scoped to just this listener if we change permissions on filtered children
+                    const error = errorForServerCode(status, query);
+                    return syncTreeRemoveEventRegistration(syncTree, query, 
+                    /*eventRegistration*/ null, error);
+                }
+            }
+        };
+    }
+    /**
+     * Return the tag associated with the given query.
+     */
+    function syncTreeTagForQuery_(syncTree, query) {
+        const queryKey = syncTreeMakeQueryKey_(query);
+        return syncTree.queryToTagMap.get(queryKey);
+    }
+    /**
+     * Given a query, computes a "queryKey" suitable for use in our queryToTagMap_.
+     */
+    function syncTreeMakeQueryKey_(query) {
+        return query._path.toString() + '$' + query._queryIdentifier;
+    }
     /**
      * Return the query associated with the given tag, if we have one
      */
@@ -12106,6 +12561,106 @@ var app = (function () {
         assert(syncPoint, "Missing sync point for query tag that we're tracking");
         const writesCache = writeTreeChildWrites(syncTree.pendingWriteTree_, queryPath);
         return syncPointApplyOperation(syncPoint, operation, writesCache, null);
+    }
+    /**
+     * This collapses multiple unfiltered views into a single view, since we only need a single
+     * listener for them.
+     */
+    function syncTreeCollectDistinctViewsForSubTree_(subtree) {
+        return subtree.fold((relativePath, maybeChildSyncPoint, childMap) => {
+            if (maybeChildSyncPoint && syncPointHasCompleteView(maybeChildSyncPoint)) {
+                const completeView = syncPointGetCompleteView(maybeChildSyncPoint);
+                return [completeView];
+            }
+            else {
+                // No complete view here, flatten any deeper listens into an array
+                let views = [];
+                if (maybeChildSyncPoint) {
+                    views = syncPointGetQueryViews(maybeChildSyncPoint);
+                }
+                each(childMap, (_key, childViews) => {
+                    views = views.concat(childViews);
+                });
+                return views;
+            }
+        });
+    }
+    /**
+     * Normalizes a query to a query we send the server for listening
+     *
+     * @returns The normalized query
+     */
+    function syncTreeQueryForListening_(query) {
+        if (query._queryParams.loadsAllData() && !query._queryParams.isDefault()) {
+            // We treat queries that load all data as default queries
+            // Cast is necessary because ref() technically returns Firebase which is actually fb.api.Firebase which inherits
+            // from Query
+            return new (syncTreeGetReferenceConstructor())(query._repo, query._path);
+        }
+        else {
+            return query;
+        }
+    }
+    function syncTreeRemoveTags_(syncTree, queries) {
+        for (let j = 0; j < queries.length; ++j) {
+            const removedQuery = queries[j];
+            if (!removedQuery._queryParams.loadsAllData()) {
+                // We should have a tag for this
+                const removedQueryKey = syncTreeMakeQueryKey_(removedQuery);
+                const removedQueryTag = syncTree.queryToTagMap.get(removedQueryKey);
+                syncTree.queryToTagMap.delete(removedQueryKey);
+                syncTree.tagToQueryMap.delete(removedQueryTag);
+            }
+        }
+    }
+    /**
+     * Static accessor for query tags.
+     */
+    function syncTreeGetNextQueryTag_() {
+        return syncTreeNextQueryTag_++;
+    }
+    /**
+     * For a given new listen, manage the de-duplication of outstanding subscriptions.
+     *
+     * @returns This method can return events to support synchronous data sources
+     */
+    function syncTreeSetupListener_(syncTree, query, view) {
+        const path = query._path;
+        const tag = syncTreeTagForQuery_(syncTree, query);
+        const listener = syncTreeCreateListenerForView_(syncTree, view);
+        const events = syncTree.listenProvider_.startListening(syncTreeQueryForListening_(query), tag, listener.hashFn, listener.onComplete);
+        const subtree = syncTree.syncPointTree_.subtree(path);
+        // The root of this subtree has our query. We're here because we definitely need to send a listen for that, but we
+        // may need to shadow other listens as well.
+        if (tag) {
+            assert(!syncPointHasCompleteView(subtree.value), "If we're adding a query, it shouldn't be shadowed");
+        }
+        else {
+            // Shadow everything at or below this location, this is a default listener.
+            const queriesToStop = subtree.fold((relativePath, maybeChildSyncPoint, childMap) => {
+                if (!pathIsEmpty(relativePath) &&
+                    maybeChildSyncPoint &&
+                    syncPointHasCompleteView(maybeChildSyncPoint)) {
+                    return [syncPointGetCompleteView(maybeChildSyncPoint).query];
+                }
+                else {
+                    // No default listener here, flatten any deeper queries into an array
+                    let queries = [];
+                    if (maybeChildSyncPoint) {
+                        queries = queries.concat(syncPointGetQueryViews(maybeChildSyncPoint).map(view => view.query));
+                    }
+                    each(childMap, (_key, childQueries) => {
+                        queries = queries.concat(childQueries);
+                    });
+                    return queries;
+                }
+            });
+            for (let i = 0; i < queriesToStop.length; ++i) {
+                const queryToStop = queriesToStop[i];
+                syncTree.listenProvider_.stopListening(syncTreeQueryForListening_(queryToStop), syncTreeTagForQuery_(syncTree, queryToStop));
+            }
+        }
+        return events;
     }
 
     /**
@@ -12947,6 +13502,28 @@ var app = (function () {
         repo.onDisconnect_ = newSparseSnapshotTree();
         eventQueueRaiseEventsForChangedPath(repo.eventQueue_, newEmptyPath(), events);
     }
+    function repoAddEventCallbackForQuery(repo, query, eventRegistration) {
+        let events;
+        if (pathGetFront(query._path) === '.info') {
+            events = syncTreeAddEventRegistration(repo.infoSyncTree_, query, eventRegistration);
+        }
+        else {
+            events = syncTreeAddEventRegistration(repo.serverSyncTree_, query, eventRegistration);
+        }
+        eventQueueRaiseEventsAtPath(repo.eventQueue_, query._path, events);
+    }
+    function repoRemoveEventCallbackForQuery(repo, query, eventRegistration) {
+        // These are guaranteed not to raise events, since we're not passing in a cancelError. However, we can future-proof
+        // a little bit by handling the return values anyways.
+        let events;
+        if (pathGetFront(query._path) === '.info') {
+            events = syncTreeRemoveEventRegistration(repo.infoSyncTree_, query, eventRegistration);
+        }
+        else {
+            events = syncTreeRemoveEventRegistration(repo.serverSyncTree_, query, eventRegistration);
+        }
+        eventQueueRaiseEventsAtPath(repo.eventQueue_, query._path, events);
+    }
     function repoInterrupt(repo) {
         if (repo.persistentConnection_) {
             repo.persistentConnection_.interrupt(INTERRUPT_REASON);
@@ -13480,6 +14057,127 @@ var app = (function () {
 
     /**
      * @license
+     * Copyright 2017 Google LLC
+     *
+     * Licensed under the Apache License, Version 2.0 (the "License");
+     * you may not use this file except in compliance with the License.
+     * You may obtain a copy of the License at
+     *
+     *   http://www.apache.org/licenses/LICENSE-2.0
+     *
+     * Unless required by applicable law or agreed to in writing, software
+     * distributed under the License is distributed on an "AS IS" BASIS,
+     * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+     * See the License for the specific language governing permissions and
+     * limitations under the License.
+     */
+    /**
+     * Encapsulates the data needed to raise an event
+     */
+    class DataEvent {
+        /**
+         * @param eventType - One of: value, child_added, child_changed, child_moved, child_removed
+         * @param eventRegistration - The function to call to with the event data. User provided
+         * @param snapshot - The data backing the event
+         * @param prevName - Optional, the name of the previous child for child_* events.
+         */
+        constructor(eventType, eventRegistration, snapshot, prevName) {
+            this.eventType = eventType;
+            this.eventRegistration = eventRegistration;
+            this.snapshot = snapshot;
+            this.prevName = prevName;
+        }
+        getPath() {
+            const ref = this.snapshot.ref;
+            if (this.eventType === 'value') {
+                return ref._path;
+            }
+            else {
+                return ref.parent._path;
+            }
+        }
+        getEventType() {
+            return this.eventType;
+        }
+        getEventRunner() {
+            return this.eventRegistration.getEventRunner(this);
+        }
+        toString() {
+            return (this.getPath().toString() +
+                ':' +
+                this.eventType +
+                ':' +
+                stringify(this.snapshot.exportVal()));
+        }
+    }
+    class CancelEvent {
+        constructor(eventRegistration, error, path) {
+            this.eventRegistration = eventRegistration;
+            this.error = error;
+            this.path = path;
+        }
+        getPath() {
+            return this.path;
+        }
+        getEventType() {
+            return 'cancel';
+        }
+        getEventRunner() {
+            return this.eventRegistration.getEventRunner(this);
+        }
+        toString() {
+            return this.path.toString() + ':cancel';
+        }
+    }
+
+    /**
+     * @license
+     * Copyright 2017 Google LLC
+     *
+     * Licensed under the Apache License, Version 2.0 (the "License");
+     * you may not use this file except in compliance with the License.
+     * You may obtain a copy of the License at
+     *
+     *   http://www.apache.org/licenses/LICENSE-2.0
+     *
+     * Unless required by applicable law or agreed to in writing, software
+     * distributed under the License is distributed on an "AS IS" BASIS,
+     * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+     * See the License for the specific language governing permissions and
+     * limitations under the License.
+     */
+    /**
+     * A wrapper class that converts events from the database@exp SDK to the legacy
+     * Database SDK. Events are not converted directly as event registration relies
+     * on reference comparison of the original user callback (see `matches()`) and
+     * relies on equality of the legacy SDK's `context` object.
+     */
+    class CallbackContext {
+        constructor(snapshotCallback, cancelCallback) {
+            this.snapshotCallback = snapshotCallback;
+            this.cancelCallback = cancelCallback;
+        }
+        onValue(expDataSnapshot, previousChildName) {
+            this.snapshotCallback.call(null, expDataSnapshot, previousChildName);
+        }
+        onCancel(error) {
+            assert(this.hasCancelCallback, 'Raising a cancel event on a listener with no cancel callback');
+            return this.cancelCallback.call(null, error);
+        }
+        get hasCancelCallback() {
+            return !!this.cancelCallback;
+        }
+        matches(other) {
+            return (this.snapshotCallback === other.snapshotCallback ||
+                (this.snapshotCallback.userCallback !== undefined &&
+                    this.snapshotCallback.userCallback ===
+                        other.snapshotCallback.userCallback &&
+                    this.snapshotCallback.context === other.snapshotCallback.context));
+        }
+    }
+
+    /**
+     * @license
      * Copyright 2020 Google LLC
      *
      * Licensed under the Apache License, Version 2.0 (the "License");
@@ -13799,6 +14497,130 @@ var app = (function () {
         });
     }
     /**
+     * Represents registration for 'value' events.
+     */
+    class ValueEventRegistration {
+        constructor(callbackContext) {
+            this.callbackContext = callbackContext;
+        }
+        respondsTo(eventType) {
+            return eventType === 'value';
+        }
+        createEvent(change, query) {
+            const index = query._queryParams.getIndex();
+            return new DataEvent('value', this, new DataSnapshot(change.snapshotNode, new ReferenceImpl(query._repo, query._path), index));
+        }
+        getEventRunner(eventData) {
+            if (eventData.getEventType() === 'cancel') {
+                return () => this.callbackContext.onCancel(eventData.error);
+            }
+            else {
+                return () => this.callbackContext.onValue(eventData.snapshot, null);
+            }
+        }
+        createCancelEvent(error, path) {
+            if (this.callbackContext.hasCancelCallback) {
+                return new CancelEvent(this, error, path);
+            }
+            else {
+                return null;
+            }
+        }
+        matches(other) {
+            if (!(other instanceof ValueEventRegistration)) {
+                return false;
+            }
+            else if (!other.callbackContext || !this.callbackContext) {
+                // If no callback specified, we consider it to match any callback.
+                return true;
+            }
+            else {
+                return other.callbackContext.matches(this.callbackContext);
+            }
+        }
+        hasAnyCallback() {
+            return this.callbackContext !== null;
+        }
+    }
+    /**
+     * Represents the registration of a child_x event.
+     */
+    class ChildEventRegistration {
+        constructor(eventType, callbackContext) {
+            this.eventType = eventType;
+            this.callbackContext = callbackContext;
+        }
+        respondsTo(eventType) {
+            let eventToCheck = eventType === 'children_added' ? 'child_added' : eventType;
+            eventToCheck =
+                eventToCheck === 'children_removed' ? 'child_removed' : eventToCheck;
+            return this.eventType === eventToCheck;
+        }
+        createCancelEvent(error, path) {
+            if (this.callbackContext.hasCancelCallback) {
+                return new CancelEvent(this, error, path);
+            }
+            else {
+                return null;
+            }
+        }
+        createEvent(change, query) {
+            assert(change.childName != null, 'Child events should have a childName.');
+            const childRef = child(new ReferenceImpl(query._repo, query._path), change.childName);
+            const index = query._queryParams.getIndex();
+            return new DataEvent(change.type, this, new DataSnapshot(change.snapshotNode, childRef, index), change.prevName);
+        }
+        getEventRunner(eventData) {
+            if (eventData.getEventType() === 'cancel') {
+                return () => this.callbackContext.onCancel(eventData.error);
+            }
+            else {
+                return () => this.callbackContext.onValue(eventData.snapshot, eventData.prevName);
+            }
+        }
+        matches(other) {
+            if (other instanceof ChildEventRegistration) {
+                return (this.eventType === other.eventType &&
+                    (!this.callbackContext ||
+                        !other.callbackContext ||
+                        this.callbackContext.matches(other.callbackContext)));
+            }
+            return false;
+        }
+        hasAnyCallback() {
+            return !!this.callbackContext;
+        }
+    }
+    function addEventListener(query, eventType, callback, cancelCallbackOrListenOptions, options) {
+        let cancelCallback;
+        if (typeof cancelCallbackOrListenOptions === 'object') {
+            cancelCallback = undefined;
+            options = cancelCallbackOrListenOptions;
+        }
+        if (typeof cancelCallbackOrListenOptions === 'function') {
+            cancelCallback = cancelCallbackOrListenOptions;
+        }
+        if (options && options.onlyOnce) {
+            const userCallback = callback;
+            const onceCallback = (dataSnapshot, previousChildName) => {
+                repoRemoveEventCallbackForQuery(query._repo, query, container);
+                userCallback(dataSnapshot, previousChildName);
+            };
+            onceCallback.userCallback = callback.userCallback;
+            onceCallback.context = callback.context;
+            callback = onceCallback;
+        }
+        const callbackContext = new CallbackContext(callback, cancelCallback || undefined);
+        const container = eventType === 'value'
+            ? new ValueEventRegistration(callbackContext)
+            : new ChildEventRegistration(eventType, callbackContext);
+        repoAddEventCallbackForQuery(query._repo, query, container);
+        return () => repoRemoveEventCallbackForQuery(query._repo, query, container);
+    }
+    function onValue(query, callback, cancelCallbackOrListenOptions, options) {
+        return addEventListener(query, 'value', callback, cancelCallbackOrListenOptions, options);
+    }
+    /**
      * Define reference constructor in various modules
      *
      * We are doing this here to avoid several circular
@@ -14021,10 +14843,10 @@ var app = (function () {
 
     /* src/Header.svelte generated by Svelte v3.46.3 */
 
-    const { console: console_1$1 } = globals;
-    const file$2 = "src/Header.svelte";
+    const { console: console_1$3 } = globals;
+    const file$4 = "src/Header.svelte";
 
-    function create_fragment$2(ctx) {
+    function create_fragment$5(ctx) {
     	let div;
     	let h1;
     	let t1;
@@ -14041,11 +14863,11 @@ var app = (function () {
     			button = element("button");
     			button.textContent = "Направи График";
     			attr_dev(h1, "class", "svelte-avj6h2");
-    			add_location(h1, file$2, 81, 2, 2974);
+    			add_location(h1, file$4, 81, 2, 2993);
     			attr_dev(button, "class", "btn btn-success svelte-avj6h2");
-    			add_location(button, file$2, 82, 2, 3001);
+    			add_location(button, file$4, 82, 2, 3020);
     			attr_dev(div, "class", "svelte-avj6h2");
-    			add_location(div, file$2, 80, 0, 2966);
+    			add_location(div, file$4, 80, 0, 2985);
     		},
     		l: function claim(nodes) {
     			throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
@@ -14075,7 +14897,7 @@ var app = (function () {
 
     	dispatch_dev("SvelteRegisterBlock", {
     		block,
-    		id: create_fragment$2.name,
+    		id: create_fragment$5.name,
     		type: "component",
     		source: "",
     		ctx
@@ -14084,7 +14906,7 @@ var app = (function () {
     	return block;
     }
 
-    function instance$2($$self, $$props, $$invalidate) {
+    function instance$5($$self, $$props, $$invalidate) {
     	let { $$slots: slots = {}, $$scope } = $$props;
     	validate_slots('Header', slots, []);
     	const dispatch = createEventDispatcher();
@@ -14095,7 +14917,6 @@ var app = (function () {
 
     		get(child(dbRef, `schedule`)).then(snapshot => {
     			if (snapshot.exists()) {
-    				console.log(snapshot.val());
     				let snapshotVal = snapshot.val();
 
     				for (let index = 0; index < snapshotVal.length; index++) {
@@ -14139,6 +14960,8 @@ var app = (function () {
     											10000
     										);
     									}
+    								} else {
+    									console.log("snapshot doesnt exist");
     								}
     							}
 
@@ -14172,7 +14995,7 @@ var app = (function () {
     	const writable_props = [];
 
     	Object.keys($$props).forEach(key => {
-    		if (!~writable_props.indexOf(key) && key.slice(0, 2) !== '$$' && key !== 'slot') console_1$1.warn(`<Header> was created with unknown prop '${key}'`);
+    		if (!~writable_props.indexOf(key) && key.slice(0, 2) !== '$$' && key !== 'slot') console_1$3.warn(`<Header> was created with unknown prop '${key}'`);
     	});
 
     	function button_binding($$value) {
@@ -14214,28 +15037,27 @@ var app = (function () {
     class Header extends SvelteComponentDev {
     	constructor(options) {
     		super(options);
-    		init(this, options, instance$2, create_fragment$2, safe_not_equal, {});
+    		init(this, options, instance$5, create_fragment$5, safe_not_equal, {});
 
     		dispatch_dev("SvelteRegisterComponent", {
     			component: this,
     			tagName: "Header",
     			options,
-    			id: create_fragment$2.name
+    			id: create_fragment$5.name
     		});
     	}
     }
 
     /* src/Nav.svelte generated by Svelte v3.46.3 */
-
-    const file$1 = "src/Nav.svelte";
+    const file$3 = "src/Nav.svelte";
 
     function get_each_context(ctx, list, i) {
     	const child_ctx = ctx.slice();
-    	child_ctx[3] = list[i];
+    	child_ctx[4] = list[i];
     	return child_ctx;
     }
 
-    // (16:4) {:else}
+    // (18:4) {:else}
     function create_else_block(ctx) {
     	let div;
     	let span;
@@ -14245,19 +15067,19 @@ var app = (function () {
     	let dispose;
 
     	function click_handler_1() {
-    		return /*click_handler_1*/ ctx[2](/*optionName*/ ctx[3]);
+    		return /*click_handler_1*/ ctx[3](/*optionName*/ ctx[4]);
     	}
 
     	const block = {
     		c: function create() {
     			div = element("div");
     			span = element("span");
-    			t0 = text(/*optionName*/ ctx[3]);
+    			t0 = text(/*optionName*/ ctx[4]);
     			t1 = space();
     			attr_dev(span, "class", "svelte-lj4lc");
-    			add_location(span, file$1, 22, 8, 490);
+    			add_location(span, file$3, 25, 8, 664);
     			attr_dev(div, "class", "option svelte-lj4lc");
-    			add_location(div, file$1, 16, 6, 370);
+    			add_location(div, file$3, 18, 6, 480);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, div, anchor);
@@ -14284,14 +15106,14 @@ var app = (function () {
     		block,
     		id: create_else_block.name,
     		type: "else",
-    		source: "(16:4) {:else}",
+    		source: "(18:4) {:else}",
     		ctx
     	});
 
     	return block;
     }
 
-    // (7:4) {#if selectedOption == optionName}
+    // (9:4) {#if selectedOption == optionName}
     function create_if_block$1(ctx) {
     	let div;
     	let span;
@@ -14300,20 +15122,16 @@ var app = (function () {
     	let mounted;
     	let dispose;
 
-    	function click_handler() {
-    		return /*click_handler*/ ctx[1](/*optionName*/ ctx[3]);
-    	}
-
     	const block = {
     		c: function create() {
     			div = element("div");
     			span = element("span");
-    			t0 = text(/*optionName*/ ctx[3]);
+    			t0 = text(/*optionName*/ ctx[4]);
     			t1 = space();
     			attr_dev(span, "class", "svelte-lj4lc");
-    			add_location(span, file$1, 13, 8, 313);
+    			add_location(span, file$3, 15, 8, 423);
     			attr_dev(div, "class", "option selected svelte-lj4lc");
-    			add_location(div, file$1, 7, 6, 184);
+    			add_location(div, file$3, 9, 6, 269);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, div, anchor);
@@ -14322,13 +15140,11 @@ var app = (function () {
     			append_dev(div, t1);
 
     			if (!mounted) {
-    				dispose = listen_dev(div, "click", click_handler, false, false, false);
+    				dispose = listen_dev(div, "click", /*click_handler*/ ctx[2], false, false, false);
     				mounted = true;
     			}
     		},
-    		p: function update(new_ctx, dirty) {
-    			ctx = new_ctx;
-    		},
+    		p: noop,
     		d: function destroy(detaching) {
     			if (detaching) detach_dev(div);
     			mounted = false;
@@ -14340,19 +15156,19 @@ var app = (function () {
     		block,
     		id: create_if_block$1.name,
     		type: "if",
-    		source: "(7:4) {#if selectedOption == optionName}",
+    		source: "(9:4) {#if selectedOption == optionName}",
     		ctx
     	});
 
     	return block;
     }
 
-    // (6:2) {#each ["Машина Рязане", "Машина Кант", "Машина Дупчене", "Склад"] as optionName}
+    // (8:2) {#each ["Машина Рязане", "Машина Кант", "Машина Дупчене", "Склад"] as optionName}
     function create_each_block(ctx) {
     	let if_block_anchor;
 
     	function select_block_type(ctx, dirty) {
-    		if (/*selectedOption*/ ctx[0] == /*optionName*/ ctx[3]) return create_if_block$1;
+    		if (/*selectedOption*/ ctx[0] == /*optionName*/ ctx[4]) return create_if_block$1;
     		return create_else_block;
     	}
 
@@ -14391,14 +15207,14 @@ var app = (function () {
     		block,
     		id: create_each_block.name,
     		type: "each",
-    		source: "(6:2) {#each [\\\"Машина Рязане\\\", \\\"Машина Кант\\\", \\\"Машина Дупчене\\\", \\\"Склад\\\"] as optionName}",
+    		source: "(8:2) {#each [\\\"Машина Рязане\\\", \\\"Машина Кант\\\", \\\"Машина Дупчене\\\", \\\"Склад\\\"] as optionName}",
     		ctx
     	});
 
     	return block;
     }
 
-    function create_fragment$1(ctx) {
+    function create_fragment$4(ctx) {
     	let nav;
     	let each_value = ["Машина Рязане", "Машина Кант", "Машина Дупчене", "Склад"];
     	validate_each_argument(each_value);
@@ -14417,7 +15233,7 @@ var app = (function () {
     			}
 
     			attr_dev(nav, "class", "svelte-lj4lc");
-    			add_location(nav, file$1, 4, 0, 49);
+    			add_location(nav, file$3, 6, 0, 134);
     		},
     		l: function claim(nodes) {
     			throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
@@ -14430,7 +15246,7 @@ var app = (function () {
     			}
     		},
     		p: function update(ctx, [dirty]) {
-    			if (dirty & /*selectedOption*/ 1) {
+    			if (dirty & /*dispatch, selectedOption*/ 3) {
     				each_value = ["Машина Рязане", "Машина Кант", "Машина Дупчене", "Склад"];
     				validate_each_argument(each_value);
     				let i;
@@ -14462,6 +15278,1894 @@ var app = (function () {
 
     	dispatch_dev("SvelteRegisterBlock", {
     		block,
+    		id: create_fragment$4.name,
+    		type: "component",
+    		source: "",
+    		ctx
+    	});
+
+    	return block;
+    }
+
+    function instance$4($$self, $$props, $$invalidate) {
+    	let { $$slots: slots = {}, $$scope } = $$props;
+    	validate_slots('Nav', slots, []);
+    	let selectedOption;
+    	let dispatch = createEventDispatcher();
+    	const writable_props = [];
+
+    	Object.keys($$props).forEach(key => {
+    		if (!~writable_props.indexOf(key) && key.slice(0, 2) !== '$$' && key !== 'slot') console.warn(`<Nav> was created with unknown prop '${key}'`);
+    	});
+
+    	const click_handler = () => {
+    		dispatch("optionChange", { option: selectedOption });
+    	};
+
+    	const click_handler_1 = optionName => {
+    		$$invalidate(0, selectedOption = optionName);
+    		dispatch("optionChange", { option: selectedOption });
+    	};
+
+    	$$self.$capture_state = () => ({
+    		selectedOption,
+    		createEventDispatcher,
+    		dispatch
+    	});
+
+    	$$self.$inject_state = $$props => {
+    		if ('selectedOption' in $$props) $$invalidate(0, selectedOption = $$props.selectedOption);
+    		if ('dispatch' in $$props) $$invalidate(1, dispatch = $$props.dispatch);
+    	};
+
+    	if ($$props && "$$inject" in $$props) {
+    		$$self.$inject_state($$props.$$inject);
+    	}
+
+    	return [selectedOption, dispatch, click_handler, click_handler_1];
+    }
+
+    class Nav extends SvelteComponentDev {
+    	constructor(options) {
+    		super(options);
+    		init(this, options, instance$4, create_fragment$4, safe_not_equal, {});
+
+    		dispatch_dev("SvelteRegisterComponent", {
+    			component: this,
+    			tagName: "Nav",
+    			options,
+    			id: create_fragment$4.name
+    		});
+    	}
+    }
+
+    /*
+     * anime.js v3.2.1
+     * (c) 2020 Julian Garnier
+     * Released under the MIT license
+     * animejs.com
+     */
+
+    // Defaults
+
+    var defaultInstanceSettings = {
+      update: null,
+      begin: null,
+      loopBegin: null,
+      changeBegin: null,
+      change: null,
+      changeComplete: null,
+      loopComplete: null,
+      complete: null,
+      loop: 1,
+      direction: 'normal',
+      autoplay: true,
+      timelineOffset: 0
+    };
+
+    var defaultTweenSettings = {
+      duration: 1000,
+      delay: 0,
+      endDelay: 0,
+      easing: 'easeOutElastic(1, .5)',
+      round: 0
+    };
+
+    var validTransforms = ['translateX', 'translateY', 'translateZ', 'rotate', 'rotateX', 'rotateY', 'rotateZ', 'scale', 'scaleX', 'scaleY', 'scaleZ', 'skew', 'skewX', 'skewY', 'perspective', 'matrix', 'matrix3d'];
+
+    // Caching
+
+    var cache = {
+      CSS: {},
+      springs: {}
+    };
+
+    // Utils
+
+    function minMax(val, min, max) {
+      return Math.min(Math.max(val, min), max);
+    }
+
+    function stringContains(str, text) {
+      return str.indexOf(text) > -1;
+    }
+
+    function applyArguments(func, args) {
+      return func.apply(null, args);
+    }
+
+    var is = {
+      arr: function (a) { return Array.isArray(a); },
+      obj: function (a) { return stringContains(Object.prototype.toString.call(a), 'Object'); },
+      pth: function (a) { return is.obj(a) && a.hasOwnProperty('totalLength'); },
+      svg: function (a) { return a instanceof SVGElement; },
+      inp: function (a) { return a instanceof HTMLInputElement; },
+      dom: function (a) { return a.nodeType || is.svg(a); },
+      str: function (a) { return typeof a === 'string'; },
+      fnc: function (a) { return typeof a === 'function'; },
+      und: function (a) { return typeof a === 'undefined'; },
+      nil: function (a) { return is.und(a) || a === null; },
+      hex: function (a) { return /(^#[0-9A-F]{6}$)|(^#[0-9A-F]{3}$)/i.test(a); },
+      rgb: function (a) { return /^rgb/.test(a); },
+      hsl: function (a) { return /^hsl/.test(a); },
+      col: function (a) { return (is.hex(a) || is.rgb(a) || is.hsl(a)); },
+      key: function (a) { return !defaultInstanceSettings.hasOwnProperty(a) && !defaultTweenSettings.hasOwnProperty(a) && a !== 'targets' && a !== 'keyframes'; },
+    };
+
+    // Easings
+
+    function parseEasingParameters(string) {
+      var match = /\(([^)]+)\)/.exec(string);
+      return match ? match[1].split(',').map(function (p) { return parseFloat(p); }) : [];
+    }
+
+    // Spring solver inspired by Webkit Copyright © 2016 Apple Inc. All rights reserved. https://webkit.org/demos/spring/spring.js
+
+    function spring(string, duration) {
+
+      var params = parseEasingParameters(string);
+      var mass = minMax(is.und(params[0]) ? 1 : params[0], .1, 100);
+      var stiffness = minMax(is.und(params[1]) ? 100 : params[1], .1, 100);
+      var damping = minMax(is.und(params[2]) ? 10 : params[2], .1, 100);
+      var velocity =  minMax(is.und(params[3]) ? 0 : params[3], .1, 100);
+      var w0 = Math.sqrt(stiffness / mass);
+      var zeta = damping / (2 * Math.sqrt(stiffness * mass));
+      var wd = zeta < 1 ? w0 * Math.sqrt(1 - zeta * zeta) : 0;
+      var a = 1;
+      var b = zeta < 1 ? (zeta * w0 + -velocity) / wd : -velocity + w0;
+
+      function solver(t) {
+        var progress = duration ? (duration * t) / 1000 : t;
+        if (zeta < 1) {
+          progress = Math.exp(-progress * zeta * w0) * (a * Math.cos(wd * progress) + b * Math.sin(wd * progress));
+        } else {
+          progress = (a + b * progress) * Math.exp(-progress * w0);
+        }
+        if (t === 0 || t === 1) { return t; }
+        return 1 - progress;
+      }
+
+      function getDuration() {
+        var cached = cache.springs[string];
+        if (cached) { return cached; }
+        var frame = 1/6;
+        var elapsed = 0;
+        var rest = 0;
+        while(true) {
+          elapsed += frame;
+          if (solver(elapsed) === 1) {
+            rest++;
+            if (rest >= 16) { break; }
+          } else {
+            rest = 0;
+          }
+        }
+        var duration = elapsed * frame * 1000;
+        cache.springs[string] = duration;
+        return duration;
+      }
+
+      return duration ? solver : getDuration;
+
+    }
+
+    // Basic steps easing implementation https://developer.mozilla.org/fr/docs/Web/CSS/transition-timing-function
+
+    function steps(steps) {
+      if ( steps === void 0 ) steps = 10;
+
+      return function (t) { return Math.ceil((minMax(t, 0.000001, 1)) * steps) * (1 / steps); };
+    }
+
+    // BezierEasing https://github.com/gre/bezier-easing
+
+    var bezier = (function () {
+
+      var kSplineTableSize = 11;
+      var kSampleStepSize = 1.0 / (kSplineTableSize - 1.0);
+
+      function A(aA1, aA2) { return 1.0 - 3.0 * aA2 + 3.0 * aA1 }
+      function B(aA1, aA2) { return 3.0 * aA2 - 6.0 * aA1 }
+      function C(aA1)      { return 3.0 * aA1 }
+
+      function calcBezier(aT, aA1, aA2) { return ((A(aA1, aA2) * aT + B(aA1, aA2)) * aT + C(aA1)) * aT }
+      function getSlope(aT, aA1, aA2) { return 3.0 * A(aA1, aA2) * aT * aT + 2.0 * B(aA1, aA2) * aT + C(aA1) }
+
+      function binarySubdivide(aX, aA, aB, mX1, mX2) {
+        var currentX, currentT, i = 0;
+        do {
+          currentT = aA + (aB - aA) / 2.0;
+          currentX = calcBezier(currentT, mX1, mX2) - aX;
+          if (currentX > 0.0) { aB = currentT; } else { aA = currentT; }
+        } while (Math.abs(currentX) > 0.0000001 && ++i < 10);
+        return currentT;
+      }
+
+      function newtonRaphsonIterate(aX, aGuessT, mX1, mX2) {
+        for (var i = 0; i < 4; ++i) {
+          var currentSlope = getSlope(aGuessT, mX1, mX2);
+          if (currentSlope === 0.0) { return aGuessT; }
+          var currentX = calcBezier(aGuessT, mX1, mX2) - aX;
+          aGuessT -= currentX / currentSlope;
+        }
+        return aGuessT;
+      }
+
+      function bezier(mX1, mY1, mX2, mY2) {
+
+        if (!(0 <= mX1 && mX1 <= 1 && 0 <= mX2 && mX2 <= 1)) { return; }
+        var sampleValues = new Float32Array(kSplineTableSize);
+
+        if (mX1 !== mY1 || mX2 !== mY2) {
+          for (var i = 0; i < kSplineTableSize; ++i) {
+            sampleValues[i] = calcBezier(i * kSampleStepSize, mX1, mX2);
+          }
+        }
+
+        function getTForX(aX) {
+
+          var intervalStart = 0;
+          var currentSample = 1;
+          var lastSample = kSplineTableSize - 1;
+
+          for (; currentSample !== lastSample && sampleValues[currentSample] <= aX; ++currentSample) {
+            intervalStart += kSampleStepSize;
+          }
+
+          --currentSample;
+
+          var dist = (aX - sampleValues[currentSample]) / (sampleValues[currentSample + 1] - sampleValues[currentSample]);
+          var guessForT = intervalStart + dist * kSampleStepSize;
+          var initialSlope = getSlope(guessForT, mX1, mX2);
+
+          if (initialSlope >= 0.001) {
+            return newtonRaphsonIterate(aX, guessForT, mX1, mX2);
+          } else if (initialSlope === 0.0) {
+            return guessForT;
+          } else {
+            return binarySubdivide(aX, intervalStart, intervalStart + kSampleStepSize, mX1, mX2);
+          }
+
+        }
+
+        return function (x) {
+          if (mX1 === mY1 && mX2 === mY2) { return x; }
+          if (x === 0 || x === 1) { return x; }
+          return calcBezier(getTForX(x), mY1, mY2);
+        }
+
+      }
+
+      return bezier;
+
+    })();
+
+    var penner = (function () {
+
+      // Based on jQuery UI's implemenation of easing equations from Robert Penner (http://www.robertpenner.com/easing)
+
+      var eases = { linear: function () { return function (t) { return t; }; } };
+
+      var functionEasings = {
+        Sine: function () { return function (t) { return 1 - Math.cos(t * Math.PI / 2); }; },
+        Circ: function () { return function (t) { return 1 - Math.sqrt(1 - t * t); }; },
+        Back: function () { return function (t) { return t * t * (3 * t - 2); }; },
+        Bounce: function () { return function (t) {
+          var pow2, b = 4;
+          while (t < (( pow2 = Math.pow(2, --b)) - 1) / 11) {}
+          return 1 / Math.pow(4, 3 - b) - 7.5625 * Math.pow(( pow2 * 3 - 2 ) / 22 - t, 2)
+        }; },
+        Elastic: function (amplitude, period) {
+          if ( amplitude === void 0 ) amplitude = 1;
+          if ( period === void 0 ) period = .5;
+
+          var a = minMax(amplitude, 1, 10);
+          var p = minMax(period, .1, 2);
+          return function (t) {
+            return (t === 0 || t === 1) ? t : 
+              -a * Math.pow(2, 10 * (t - 1)) * Math.sin((((t - 1) - (p / (Math.PI * 2) * Math.asin(1 / a))) * (Math.PI * 2)) / p);
+          }
+        }
+      };
+
+      var baseEasings = ['Quad', 'Cubic', 'Quart', 'Quint', 'Expo'];
+
+      baseEasings.forEach(function (name, i) {
+        functionEasings[name] = function () { return function (t) { return Math.pow(t, i + 2); }; };
+      });
+
+      Object.keys(functionEasings).forEach(function (name) {
+        var easeIn = functionEasings[name];
+        eases['easeIn' + name] = easeIn;
+        eases['easeOut' + name] = function (a, b) { return function (t) { return 1 - easeIn(a, b)(1 - t); }; };
+        eases['easeInOut' + name] = function (a, b) { return function (t) { return t < 0.5 ? easeIn(a, b)(t * 2) / 2 : 
+          1 - easeIn(a, b)(t * -2 + 2) / 2; }; };
+        eases['easeOutIn' + name] = function (a, b) { return function (t) { return t < 0.5 ? (1 - easeIn(a, b)(1 - t * 2)) / 2 : 
+          (easeIn(a, b)(t * 2 - 1) + 1) / 2; }; };
+      });
+
+      return eases;
+
+    })();
+
+    function parseEasings(easing, duration) {
+      if (is.fnc(easing)) { return easing; }
+      var name = easing.split('(')[0];
+      var ease = penner[name];
+      var args = parseEasingParameters(easing);
+      switch (name) {
+        case 'spring' : return spring(easing, duration);
+        case 'cubicBezier' : return applyArguments(bezier, args);
+        case 'steps' : return applyArguments(steps, args);
+        default : return applyArguments(ease, args);
+      }
+    }
+
+    // Strings
+
+    function selectString(str) {
+      try {
+        var nodes = document.querySelectorAll(str);
+        return nodes;
+      } catch(e) {
+        return;
+      }
+    }
+
+    // Arrays
+
+    function filterArray(arr, callback) {
+      var len = arr.length;
+      var thisArg = arguments.length >= 2 ? arguments[1] : void 0;
+      var result = [];
+      for (var i = 0; i < len; i++) {
+        if (i in arr) {
+          var val = arr[i];
+          if (callback.call(thisArg, val, i, arr)) {
+            result.push(val);
+          }
+        }
+      }
+      return result;
+    }
+
+    function flattenArray(arr) {
+      return arr.reduce(function (a, b) { return a.concat(is.arr(b) ? flattenArray(b) : b); }, []);
+    }
+
+    function toArray(o) {
+      if (is.arr(o)) { return o; }
+      if (is.str(o)) { o = selectString(o) || o; }
+      if (o instanceof NodeList || o instanceof HTMLCollection) { return [].slice.call(o); }
+      return [o];
+    }
+
+    function arrayContains(arr, val) {
+      return arr.some(function (a) { return a === val; });
+    }
+
+    // Objects
+
+    function cloneObject(o) {
+      var clone = {};
+      for (var p in o) { clone[p] = o[p]; }
+      return clone;
+    }
+
+    function replaceObjectProps(o1, o2) {
+      var o = cloneObject(o1);
+      for (var p in o1) { o[p] = o2.hasOwnProperty(p) ? o2[p] : o1[p]; }
+      return o;
+    }
+
+    function mergeObjects(o1, o2) {
+      var o = cloneObject(o1);
+      for (var p in o2) { o[p] = is.und(o1[p]) ? o2[p] : o1[p]; }
+      return o;
+    }
+
+    // Colors
+
+    function rgbToRgba(rgbValue) {
+      var rgb = /rgb\((\d+,\s*[\d]+,\s*[\d]+)\)/g.exec(rgbValue);
+      return rgb ? ("rgba(" + (rgb[1]) + ",1)") : rgbValue;
+    }
+
+    function hexToRgba(hexValue) {
+      var rgx = /^#?([a-f\d])([a-f\d])([a-f\d])$/i;
+      var hex = hexValue.replace(rgx, function (m, r, g, b) { return r + r + g + g + b + b; } );
+      var rgb = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+      var r = parseInt(rgb[1], 16);
+      var g = parseInt(rgb[2], 16);
+      var b = parseInt(rgb[3], 16);
+      return ("rgba(" + r + "," + g + "," + b + ",1)");
+    }
+
+    function hslToRgba(hslValue) {
+      var hsl = /hsl\((\d+),\s*([\d.]+)%,\s*([\d.]+)%\)/g.exec(hslValue) || /hsla\((\d+),\s*([\d.]+)%,\s*([\d.]+)%,\s*([\d.]+)\)/g.exec(hslValue);
+      var h = parseInt(hsl[1], 10) / 360;
+      var s = parseInt(hsl[2], 10) / 100;
+      var l = parseInt(hsl[3], 10) / 100;
+      var a = hsl[4] || 1;
+      function hue2rgb(p, q, t) {
+        if (t < 0) { t += 1; }
+        if (t > 1) { t -= 1; }
+        if (t < 1/6) { return p + (q - p) * 6 * t; }
+        if (t < 1/2) { return q; }
+        if (t < 2/3) { return p + (q - p) * (2/3 - t) * 6; }
+        return p;
+      }
+      var r, g, b;
+      if (s == 0) {
+        r = g = b = l;
+      } else {
+        var q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+        var p = 2 * l - q;
+        r = hue2rgb(p, q, h + 1/3);
+        g = hue2rgb(p, q, h);
+        b = hue2rgb(p, q, h - 1/3);
+      }
+      return ("rgba(" + (r * 255) + "," + (g * 255) + "," + (b * 255) + "," + a + ")");
+    }
+
+    function colorToRgb(val) {
+      if (is.rgb(val)) { return rgbToRgba(val); }
+      if (is.hex(val)) { return hexToRgba(val); }
+      if (is.hsl(val)) { return hslToRgba(val); }
+    }
+
+    // Units
+
+    function getUnit(val) {
+      var split = /[+-]?\d*\.?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?(%|px|pt|em|rem|in|cm|mm|ex|ch|pc|vw|vh|vmin|vmax|deg|rad|turn)?$/.exec(val);
+      if (split) { return split[1]; }
+    }
+
+    function getTransformUnit(propName) {
+      if (stringContains(propName, 'translate') || propName === 'perspective') { return 'px'; }
+      if (stringContains(propName, 'rotate') || stringContains(propName, 'skew')) { return 'deg'; }
+    }
+
+    // Values
+
+    function getFunctionValue(val, animatable) {
+      if (!is.fnc(val)) { return val; }
+      return val(animatable.target, animatable.id, animatable.total);
+    }
+
+    function getAttribute(el, prop) {
+      return el.getAttribute(prop);
+    }
+
+    function convertPxToUnit(el, value, unit) {
+      var valueUnit = getUnit(value);
+      if (arrayContains([unit, 'deg', 'rad', 'turn'], valueUnit)) { return value; }
+      var cached = cache.CSS[value + unit];
+      if (!is.und(cached)) { return cached; }
+      var baseline = 100;
+      var tempEl = document.createElement(el.tagName);
+      var parentEl = (el.parentNode && (el.parentNode !== document)) ? el.parentNode : document.body;
+      parentEl.appendChild(tempEl);
+      tempEl.style.position = 'absolute';
+      tempEl.style.width = baseline + unit;
+      var factor = baseline / tempEl.offsetWidth;
+      parentEl.removeChild(tempEl);
+      var convertedUnit = factor * parseFloat(value);
+      cache.CSS[value + unit] = convertedUnit;
+      return convertedUnit;
+    }
+
+    function getCSSValue(el, prop, unit) {
+      if (prop in el.style) {
+        var uppercasePropName = prop.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase();
+        var value = el.style[prop] || getComputedStyle(el).getPropertyValue(uppercasePropName) || '0';
+        return unit ? convertPxToUnit(el, value, unit) : value;
+      }
+    }
+
+    function getAnimationType(el, prop) {
+      if (is.dom(el) && !is.inp(el) && (!is.nil(getAttribute(el, prop)) || (is.svg(el) && el[prop]))) { return 'attribute'; }
+      if (is.dom(el) && arrayContains(validTransforms, prop)) { return 'transform'; }
+      if (is.dom(el) && (prop !== 'transform' && getCSSValue(el, prop))) { return 'css'; }
+      if (el[prop] != null) { return 'object'; }
+    }
+
+    function getElementTransforms(el) {
+      if (!is.dom(el)) { return; }
+      var str = el.style.transform || '';
+      var reg  = /(\w+)\(([^)]*)\)/g;
+      var transforms = new Map();
+      var m; while (m = reg.exec(str)) { transforms.set(m[1], m[2]); }
+      return transforms;
+    }
+
+    function getTransformValue(el, propName, animatable, unit) {
+      var defaultVal = stringContains(propName, 'scale') ? 1 : 0 + getTransformUnit(propName);
+      var value = getElementTransforms(el).get(propName) || defaultVal;
+      if (animatable) {
+        animatable.transforms.list.set(propName, value);
+        animatable.transforms['last'] = propName;
+      }
+      return unit ? convertPxToUnit(el, value, unit) : value;
+    }
+
+    function getOriginalTargetValue(target, propName, unit, animatable) {
+      switch (getAnimationType(target, propName)) {
+        case 'transform': return getTransformValue(target, propName, animatable, unit);
+        case 'css': return getCSSValue(target, propName, unit);
+        case 'attribute': return getAttribute(target, propName);
+        default: return target[propName] || 0;
+      }
+    }
+
+    function getRelativeValue(to, from) {
+      var operator = /^(\*=|\+=|-=)/.exec(to);
+      if (!operator) { return to; }
+      var u = getUnit(to) || 0;
+      var x = parseFloat(from);
+      var y = parseFloat(to.replace(operator[0], ''));
+      switch (operator[0][0]) {
+        case '+': return x + y + u;
+        case '-': return x - y + u;
+        case '*': return x * y + u;
+      }
+    }
+
+    function validateValue(val, unit) {
+      if (is.col(val)) { return colorToRgb(val); }
+      if (/\s/g.test(val)) { return val; }
+      var originalUnit = getUnit(val);
+      var unitLess = originalUnit ? val.substr(0, val.length - originalUnit.length) : val;
+      if (unit) { return unitLess + unit; }
+      return unitLess;
+    }
+
+    // getTotalLength() equivalent for circle, rect, polyline, polygon and line shapes
+    // adapted from https://gist.github.com/SebLambla/3e0550c496c236709744
+
+    function getDistance(p1, p2) {
+      return Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2));
+    }
+
+    function getCircleLength(el) {
+      return Math.PI * 2 * getAttribute(el, 'r');
+    }
+
+    function getRectLength(el) {
+      return (getAttribute(el, 'width') * 2) + (getAttribute(el, 'height') * 2);
+    }
+
+    function getLineLength(el) {
+      return getDistance(
+        {x: getAttribute(el, 'x1'), y: getAttribute(el, 'y1')}, 
+        {x: getAttribute(el, 'x2'), y: getAttribute(el, 'y2')}
+      );
+    }
+
+    function getPolylineLength(el) {
+      var points = el.points;
+      var totalLength = 0;
+      var previousPos;
+      for (var i = 0 ; i < points.numberOfItems; i++) {
+        var currentPos = points.getItem(i);
+        if (i > 0) { totalLength += getDistance(previousPos, currentPos); }
+        previousPos = currentPos;
+      }
+      return totalLength;
+    }
+
+    function getPolygonLength(el) {
+      var points = el.points;
+      return getPolylineLength(el) + getDistance(points.getItem(points.numberOfItems - 1), points.getItem(0));
+    }
+
+    // Path animation
+
+    function getTotalLength(el) {
+      if (el.getTotalLength) { return el.getTotalLength(); }
+      switch(el.tagName.toLowerCase()) {
+        case 'circle': return getCircleLength(el);
+        case 'rect': return getRectLength(el);
+        case 'line': return getLineLength(el);
+        case 'polyline': return getPolylineLength(el);
+        case 'polygon': return getPolygonLength(el);
+      }
+    }
+
+    function setDashoffset(el) {
+      var pathLength = getTotalLength(el);
+      el.setAttribute('stroke-dasharray', pathLength);
+      return pathLength;
+    }
+
+    // Motion path
+
+    function getParentSvgEl(el) {
+      var parentEl = el.parentNode;
+      while (is.svg(parentEl)) {
+        if (!is.svg(parentEl.parentNode)) { break; }
+        parentEl = parentEl.parentNode;
+      }
+      return parentEl;
+    }
+
+    function getParentSvg(pathEl, svgData) {
+      var svg = svgData || {};
+      var parentSvgEl = svg.el || getParentSvgEl(pathEl);
+      var rect = parentSvgEl.getBoundingClientRect();
+      var viewBoxAttr = getAttribute(parentSvgEl, 'viewBox');
+      var width = rect.width;
+      var height = rect.height;
+      var viewBox = svg.viewBox || (viewBoxAttr ? viewBoxAttr.split(' ') : [0, 0, width, height]);
+      return {
+        el: parentSvgEl,
+        viewBox: viewBox,
+        x: viewBox[0] / 1,
+        y: viewBox[1] / 1,
+        w: width,
+        h: height,
+        vW: viewBox[2],
+        vH: viewBox[3]
+      }
+    }
+
+    function getPath(path, percent) {
+      var pathEl = is.str(path) ? selectString(path)[0] : path;
+      var p = percent || 100;
+      return function(property) {
+        return {
+          property: property,
+          el: pathEl,
+          svg: getParentSvg(pathEl),
+          totalLength: getTotalLength(pathEl) * (p / 100)
+        }
+      }
+    }
+
+    function getPathProgress(path, progress, isPathTargetInsideSVG) {
+      function point(offset) {
+        if ( offset === void 0 ) offset = 0;
+
+        var l = progress + offset >= 1 ? progress + offset : 0;
+        return path.el.getPointAtLength(l);
+      }
+      var svg = getParentSvg(path.el, path.svg);
+      var p = point();
+      var p0 = point(-1);
+      var p1 = point(+1);
+      var scaleX = isPathTargetInsideSVG ? 1 : svg.w / svg.vW;
+      var scaleY = isPathTargetInsideSVG ? 1 : svg.h / svg.vH;
+      switch (path.property) {
+        case 'x': return (p.x - svg.x) * scaleX;
+        case 'y': return (p.y - svg.y) * scaleY;
+        case 'angle': return Math.atan2(p1.y - p0.y, p1.x - p0.x) * 180 / Math.PI;
+      }
+    }
+
+    // Decompose value
+
+    function decomposeValue(val, unit) {
+      // const rgx = /-?\d*\.?\d+/g; // handles basic numbers
+      // const rgx = /[+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/g; // handles exponents notation
+      var rgx = /[+-]?\d*\.?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/g; // handles exponents notation
+      var value = validateValue((is.pth(val) ? val.totalLength : val), unit) + '';
+      return {
+        original: value,
+        numbers: value.match(rgx) ? value.match(rgx).map(Number) : [0],
+        strings: (is.str(val) || unit) ? value.split(rgx) : []
+      }
+    }
+
+    // Animatables
+
+    function parseTargets(targets) {
+      var targetsArray = targets ? (flattenArray(is.arr(targets) ? targets.map(toArray) : toArray(targets))) : [];
+      return filterArray(targetsArray, function (item, pos, self) { return self.indexOf(item) === pos; });
+    }
+
+    function getAnimatables(targets) {
+      var parsed = parseTargets(targets);
+      return parsed.map(function (t, i) {
+        return {target: t, id: i, total: parsed.length, transforms: { list: getElementTransforms(t) } };
+      });
+    }
+
+    // Properties
+
+    function normalizePropertyTweens(prop, tweenSettings) {
+      var settings = cloneObject(tweenSettings);
+      // Override duration if easing is a spring
+      if (/^spring/.test(settings.easing)) { settings.duration = spring(settings.easing); }
+      if (is.arr(prop)) {
+        var l = prop.length;
+        var isFromTo = (l === 2 && !is.obj(prop[0]));
+        if (!isFromTo) {
+          // Duration divided by the number of tweens
+          if (!is.fnc(tweenSettings.duration)) { settings.duration = tweenSettings.duration / l; }
+        } else {
+          // Transform [from, to] values shorthand to a valid tween value
+          prop = {value: prop};
+        }
+      }
+      var propArray = is.arr(prop) ? prop : [prop];
+      return propArray.map(function (v, i) {
+        var obj = (is.obj(v) && !is.pth(v)) ? v : {value: v};
+        // Default delay value should only be applied to the first tween
+        if (is.und(obj.delay)) { obj.delay = !i ? tweenSettings.delay : 0; }
+        // Default endDelay value should only be applied to the last tween
+        if (is.und(obj.endDelay)) { obj.endDelay = i === propArray.length - 1 ? tweenSettings.endDelay : 0; }
+        return obj;
+      }).map(function (k) { return mergeObjects(k, settings); });
+    }
+
+
+    function flattenKeyframes(keyframes) {
+      var propertyNames = filterArray(flattenArray(keyframes.map(function (key) { return Object.keys(key); })), function (p) { return is.key(p); })
+      .reduce(function (a,b) { if (a.indexOf(b) < 0) { a.push(b); } return a; }, []);
+      var properties = {};
+      var loop = function ( i ) {
+        var propName = propertyNames[i];
+        properties[propName] = keyframes.map(function (key) {
+          var newKey = {};
+          for (var p in key) {
+            if (is.key(p)) {
+              if (p == propName) { newKey.value = key[p]; }
+            } else {
+              newKey[p] = key[p];
+            }
+          }
+          return newKey;
+        });
+      };
+
+      for (var i = 0; i < propertyNames.length; i++) loop( i );
+      return properties;
+    }
+
+    function getProperties(tweenSettings, params) {
+      var properties = [];
+      var keyframes = params.keyframes;
+      if (keyframes) { params = mergeObjects(flattenKeyframes(keyframes), params); }
+      for (var p in params) {
+        if (is.key(p)) {
+          properties.push({
+            name: p,
+            tweens: normalizePropertyTweens(params[p], tweenSettings)
+          });
+        }
+      }
+      return properties;
+    }
+
+    // Tweens
+
+    function normalizeTweenValues(tween, animatable) {
+      var t = {};
+      for (var p in tween) {
+        var value = getFunctionValue(tween[p], animatable);
+        if (is.arr(value)) {
+          value = value.map(function (v) { return getFunctionValue(v, animatable); });
+          if (value.length === 1) { value = value[0]; }
+        }
+        t[p] = value;
+      }
+      t.duration = parseFloat(t.duration);
+      t.delay = parseFloat(t.delay);
+      return t;
+    }
+
+    function normalizeTweens(prop, animatable) {
+      var previousTween;
+      return prop.tweens.map(function (t) {
+        var tween = normalizeTweenValues(t, animatable);
+        var tweenValue = tween.value;
+        var to = is.arr(tweenValue) ? tweenValue[1] : tweenValue;
+        var toUnit = getUnit(to);
+        var originalValue = getOriginalTargetValue(animatable.target, prop.name, toUnit, animatable);
+        var previousValue = previousTween ? previousTween.to.original : originalValue;
+        var from = is.arr(tweenValue) ? tweenValue[0] : previousValue;
+        var fromUnit = getUnit(from) || getUnit(originalValue);
+        var unit = toUnit || fromUnit;
+        if (is.und(to)) { to = previousValue; }
+        tween.from = decomposeValue(from, unit);
+        tween.to = decomposeValue(getRelativeValue(to, from), unit);
+        tween.start = previousTween ? previousTween.end : 0;
+        tween.end = tween.start + tween.delay + tween.duration + tween.endDelay;
+        tween.easing = parseEasings(tween.easing, tween.duration);
+        tween.isPath = is.pth(tweenValue);
+        tween.isPathTargetInsideSVG = tween.isPath && is.svg(animatable.target);
+        tween.isColor = is.col(tween.from.original);
+        if (tween.isColor) { tween.round = 1; }
+        previousTween = tween;
+        return tween;
+      });
+    }
+
+    // Tween progress
+
+    var setProgressValue = {
+      css: function (t, p, v) { return t.style[p] = v; },
+      attribute: function (t, p, v) { return t.setAttribute(p, v); },
+      object: function (t, p, v) { return t[p] = v; },
+      transform: function (t, p, v, transforms, manual) {
+        transforms.list.set(p, v);
+        if (p === transforms.last || manual) {
+          var str = '';
+          transforms.list.forEach(function (value, prop) { str += prop + "(" + value + ") "; });
+          t.style.transform = str;
+        }
+      }
+    };
+
+    // Set Value helper
+
+    function setTargetsValue(targets, properties) {
+      var animatables = getAnimatables(targets);
+      animatables.forEach(function (animatable) {
+        for (var property in properties) {
+          var value = getFunctionValue(properties[property], animatable);
+          var target = animatable.target;
+          var valueUnit = getUnit(value);
+          var originalValue = getOriginalTargetValue(target, property, valueUnit, animatable);
+          var unit = valueUnit || getUnit(originalValue);
+          var to = getRelativeValue(validateValue(value, unit), originalValue);
+          var animType = getAnimationType(target, property);
+          setProgressValue[animType](target, property, to, animatable.transforms, true);
+        }
+      });
+    }
+
+    // Animations
+
+    function createAnimation(animatable, prop) {
+      var animType = getAnimationType(animatable.target, prop.name);
+      if (animType) {
+        var tweens = normalizeTweens(prop, animatable);
+        var lastTween = tweens[tweens.length - 1];
+        return {
+          type: animType,
+          property: prop.name,
+          animatable: animatable,
+          tweens: tweens,
+          duration: lastTween.end,
+          delay: tweens[0].delay,
+          endDelay: lastTween.endDelay
+        }
+      }
+    }
+
+    function getAnimations(animatables, properties) {
+      return filterArray(flattenArray(animatables.map(function (animatable) {
+        return properties.map(function (prop) {
+          return createAnimation(animatable, prop);
+        });
+      })), function (a) { return !is.und(a); });
+    }
+
+    // Create Instance
+
+    function getInstanceTimings(animations, tweenSettings) {
+      var animLength = animations.length;
+      var getTlOffset = function (anim) { return anim.timelineOffset ? anim.timelineOffset : 0; };
+      var timings = {};
+      timings.duration = animLength ? Math.max.apply(Math, animations.map(function (anim) { return getTlOffset(anim) + anim.duration; })) : tweenSettings.duration;
+      timings.delay = animLength ? Math.min.apply(Math, animations.map(function (anim) { return getTlOffset(anim) + anim.delay; })) : tweenSettings.delay;
+      timings.endDelay = animLength ? timings.duration - Math.max.apply(Math, animations.map(function (anim) { return getTlOffset(anim) + anim.duration - anim.endDelay; })) : tweenSettings.endDelay;
+      return timings;
+    }
+
+    var instanceID = 0;
+
+    function createNewInstance(params) {
+      var instanceSettings = replaceObjectProps(defaultInstanceSettings, params);
+      var tweenSettings = replaceObjectProps(defaultTweenSettings, params);
+      var properties = getProperties(tweenSettings, params);
+      var animatables = getAnimatables(params.targets);
+      var animations = getAnimations(animatables, properties);
+      var timings = getInstanceTimings(animations, tweenSettings);
+      var id = instanceID;
+      instanceID++;
+      return mergeObjects(instanceSettings, {
+        id: id,
+        children: [],
+        animatables: animatables,
+        animations: animations,
+        duration: timings.duration,
+        delay: timings.delay,
+        endDelay: timings.endDelay
+      });
+    }
+
+    // Core
+
+    var activeInstances = [];
+
+    var engine = (function () {
+      var raf;
+
+      function play() {
+        if (!raf && (!isDocumentHidden() || !anime.suspendWhenDocumentHidden) && activeInstances.length > 0) {
+          raf = requestAnimationFrame(step);
+        }
+      }
+      function step(t) {
+        // memo on algorithm issue:
+        // dangerous iteration over mutable `activeInstances`
+        // (that collection may be updated from within callbacks of `tick`-ed animation instances)
+        var activeInstancesLength = activeInstances.length;
+        var i = 0;
+        while (i < activeInstancesLength) {
+          var activeInstance = activeInstances[i];
+          if (!activeInstance.paused) {
+            activeInstance.tick(t);
+            i++;
+          } else {
+            activeInstances.splice(i, 1);
+            activeInstancesLength--;
+          }
+        }
+        raf = i > 0 ? requestAnimationFrame(step) : undefined;
+      }
+
+      function handleVisibilityChange() {
+        if (!anime.suspendWhenDocumentHidden) { return; }
+
+        if (isDocumentHidden()) {
+          // suspend ticks
+          raf = cancelAnimationFrame(raf);
+        } else { // is back to active tab
+          // first adjust animations to consider the time that ticks were suspended
+          activeInstances.forEach(
+            function (instance) { return instance ._onDocumentVisibility(); }
+          );
+          engine();
+        }
+      }
+      if (typeof document !== 'undefined') {
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+      }
+
+      return play;
+    })();
+
+    function isDocumentHidden() {
+      return !!document && document.hidden;
+    }
+
+    // Public Instance
+
+    function anime(params) {
+      if ( params === void 0 ) params = {};
+
+
+      var startTime = 0, lastTime = 0, now = 0;
+      var children, childrenLength = 0;
+      var resolve = null;
+
+      function makePromise(instance) {
+        var promise = window.Promise && new Promise(function (_resolve) { return resolve = _resolve; });
+        instance.finished = promise;
+        return promise;
+      }
+
+      var instance = createNewInstance(params);
+      makePromise(instance);
+
+      function toggleInstanceDirection() {
+        var direction = instance.direction;
+        if (direction !== 'alternate') {
+          instance.direction = direction !== 'normal' ? 'normal' : 'reverse';
+        }
+        instance.reversed = !instance.reversed;
+        children.forEach(function (child) { return child.reversed = instance.reversed; });
+      }
+
+      function adjustTime(time) {
+        return instance.reversed ? instance.duration - time : time;
+      }
+
+      function resetTime() {
+        startTime = 0;
+        lastTime = adjustTime(instance.currentTime) * (1 / anime.speed);
+      }
+
+      function seekChild(time, child) {
+        if (child) { child.seek(time - child.timelineOffset); }
+      }
+
+      function syncInstanceChildren(time) {
+        if (!instance.reversePlayback) {
+          for (var i = 0; i < childrenLength; i++) { seekChild(time, children[i]); }
+        } else {
+          for (var i$1 = childrenLength; i$1--;) { seekChild(time, children[i$1]); }
+        }
+      }
+
+      function setAnimationsProgress(insTime) {
+        var i = 0;
+        var animations = instance.animations;
+        var animationsLength = animations.length;
+        while (i < animationsLength) {
+          var anim = animations[i];
+          var animatable = anim.animatable;
+          var tweens = anim.tweens;
+          var tweenLength = tweens.length - 1;
+          var tween = tweens[tweenLength];
+          // Only check for keyframes if there is more than one tween
+          if (tweenLength) { tween = filterArray(tweens, function (t) { return (insTime < t.end); })[0] || tween; }
+          var elapsed = minMax(insTime - tween.start - tween.delay, 0, tween.duration) / tween.duration;
+          var eased = isNaN(elapsed) ? 1 : tween.easing(elapsed);
+          var strings = tween.to.strings;
+          var round = tween.round;
+          var numbers = [];
+          var toNumbersLength = tween.to.numbers.length;
+          var progress = (void 0);
+          for (var n = 0; n < toNumbersLength; n++) {
+            var value = (void 0);
+            var toNumber = tween.to.numbers[n];
+            var fromNumber = tween.from.numbers[n] || 0;
+            if (!tween.isPath) {
+              value = fromNumber + (eased * (toNumber - fromNumber));
+            } else {
+              value = getPathProgress(tween.value, eased * toNumber, tween.isPathTargetInsideSVG);
+            }
+            if (round) {
+              if (!(tween.isColor && n > 2)) {
+                value = Math.round(value * round) / round;
+              }
+            }
+            numbers.push(value);
+          }
+          // Manual Array.reduce for better performances
+          var stringsLength = strings.length;
+          if (!stringsLength) {
+            progress = numbers[0];
+          } else {
+            progress = strings[0];
+            for (var s = 0; s < stringsLength; s++) {
+              strings[s];
+              var b = strings[s + 1];
+              var n$1 = numbers[s];
+              if (!isNaN(n$1)) {
+                if (!b) {
+                  progress += n$1 + ' ';
+                } else {
+                  progress += n$1 + b;
+                }
+              }
+            }
+          }
+          setProgressValue[anim.type](animatable.target, anim.property, progress, animatable.transforms);
+          anim.currentValue = progress;
+          i++;
+        }
+      }
+
+      function setCallback(cb) {
+        if (instance[cb] && !instance.passThrough) { instance[cb](instance); }
+      }
+
+      function countIteration() {
+        if (instance.remaining && instance.remaining !== true) {
+          instance.remaining--;
+        }
+      }
+
+      function setInstanceProgress(engineTime) {
+        var insDuration = instance.duration;
+        var insDelay = instance.delay;
+        var insEndDelay = insDuration - instance.endDelay;
+        var insTime = adjustTime(engineTime);
+        instance.progress = minMax((insTime / insDuration) * 100, 0, 100);
+        instance.reversePlayback = insTime < instance.currentTime;
+        if (children) { syncInstanceChildren(insTime); }
+        if (!instance.began && instance.currentTime > 0) {
+          instance.began = true;
+          setCallback('begin');
+        }
+        if (!instance.loopBegan && instance.currentTime > 0) {
+          instance.loopBegan = true;
+          setCallback('loopBegin');
+        }
+        if (insTime <= insDelay && instance.currentTime !== 0) {
+          setAnimationsProgress(0);
+        }
+        if ((insTime >= insEndDelay && instance.currentTime !== insDuration) || !insDuration) {
+          setAnimationsProgress(insDuration);
+        }
+        if (insTime > insDelay && insTime < insEndDelay) {
+          if (!instance.changeBegan) {
+            instance.changeBegan = true;
+            instance.changeCompleted = false;
+            setCallback('changeBegin');
+          }
+          setCallback('change');
+          setAnimationsProgress(insTime);
+        } else {
+          if (instance.changeBegan) {
+            instance.changeCompleted = true;
+            instance.changeBegan = false;
+            setCallback('changeComplete');
+          }
+        }
+        instance.currentTime = minMax(insTime, 0, insDuration);
+        if (instance.began) { setCallback('update'); }
+        if (engineTime >= insDuration) {
+          lastTime = 0;
+          countIteration();
+          if (!instance.remaining) {
+            instance.paused = true;
+            if (!instance.completed) {
+              instance.completed = true;
+              setCallback('loopComplete');
+              setCallback('complete');
+              if (!instance.passThrough && 'Promise' in window) {
+                resolve();
+                makePromise(instance);
+              }
+            }
+          } else {
+            startTime = now;
+            setCallback('loopComplete');
+            instance.loopBegan = false;
+            if (instance.direction === 'alternate') {
+              toggleInstanceDirection();
+            }
+          }
+        }
+      }
+
+      instance.reset = function() {
+        var direction = instance.direction;
+        instance.passThrough = false;
+        instance.currentTime = 0;
+        instance.progress = 0;
+        instance.paused = true;
+        instance.began = false;
+        instance.loopBegan = false;
+        instance.changeBegan = false;
+        instance.completed = false;
+        instance.changeCompleted = false;
+        instance.reversePlayback = false;
+        instance.reversed = direction === 'reverse';
+        instance.remaining = instance.loop;
+        children = instance.children;
+        childrenLength = children.length;
+        for (var i = childrenLength; i--;) { instance.children[i].reset(); }
+        if (instance.reversed && instance.loop !== true || (direction === 'alternate' && instance.loop === 1)) { instance.remaining++; }
+        setAnimationsProgress(instance.reversed ? instance.duration : 0);
+      };
+
+      // internal method (for engine) to adjust animation timings before restoring engine ticks (rAF)
+      instance._onDocumentVisibility = resetTime;
+
+      // Set Value helper
+
+      instance.set = function(targets, properties) {
+        setTargetsValue(targets, properties);
+        return instance;
+      };
+
+      instance.tick = function(t) {
+        now = t;
+        if (!startTime) { startTime = now; }
+        setInstanceProgress((now + (lastTime - startTime)) * anime.speed);
+      };
+
+      instance.seek = function(time) {
+        setInstanceProgress(adjustTime(time));
+      };
+
+      instance.pause = function() {
+        instance.paused = true;
+        resetTime();
+      };
+
+      instance.play = function() {
+        if (!instance.paused) { return; }
+        if (instance.completed) { instance.reset(); }
+        instance.paused = false;
+        activeInstances.push(instance);
+        resetTime();
+        engine();
+      };
+
+      instance.reverse = function() {
+        toggleInstanceDirection();
+        instance.completed = instance.reversed ? false : true;
+        resetTime();
+      };
+
+      instance.restart = function() {
+        instance.reset();
+        instance.play();
+      };
+
+      instance.remove = function(targets) {
+        var targetsArray = parseTargets(targets);
+        removeTargetsFromInstance(targetsArray, instance);
+      };
+
+      instance.reset();
+
+      if (instance.autoplay) { instance.play(); }
+
+      return instance;
+
+    }
+
+    // Remove targets from animation
+
+    function removeTargetsFromAnimations(targetsArray, animations) {
+      for (var a = animations.length; a--;) {
+        if (arrayContains(targetsArray, animations[a].animatable.target)) {
+          animations.splice(a, 1);
+        }
+      }
+    }
+
+    function removeTargetsFromInstance(targetsArray, instance) {
+      var animations = instance.animations;
+      var children = instance.children;
+      removeTargetsFromAnimations(targetsArray, animations);
+      for (var c = children.length; c--;) {
+        var child = children[c];
+        var childAnimations = child.animations;
+        removeTargetsFromAnimations(targetsArray, childAnimations);
+        if (!childAnimations.length && !child.children.length) { children.splice(c, 1); }
+      }
+      if (!animations.length && !children.length) { instance.pause(); }
+    }
+
+    function removeTargetsFromActiveInstances(targets) {
+      var targetsArray = parseTargets(targets);
+      for (var i = activeInstances.length; i--;) {
+        var instance = activeInstances[i];
+        removeTargetsFromInstance(targetsArray, instance);
+      }
+    }
+
+    // Stagger helpers
+
+    function stagger(val, params) {
+      if ( params === void 0 ) params = {};
+
+      var direction = params.direction || 'normal';
+      var easing = params.easing ? parseEasings(params.easing) : null;
+      var grid = params.grid;
+      var axis = params.axis;
+      var fromIndex = params.from || 0;
+      var fromFirst = fromIndex === 'first';
+      var fromCenter = fromIndex === 'center';
+      var fromLast = fromIndex === 'last';
+      var isRange = is.arr(val);
+      var val1 = isRange ? parseFloat(val[0]) : parseFloat(val);
+      var val2 = isRange ? parseFloat(val[1]) : 0;
+      var unit = getUnit(isRange ? val[1] : val) || 0;
+      var start = params.start || 0 + (isRange ? val1 : 0);
+      var values = [];
+      var maxValue = 0;
+      return function (el, i, t) {
+        if (fromFirst) { fromIndex = 0; }
+        if (fromCenter) { fromIndex = (t - 1) / 2; }
+        if (fromLast) { fromIndex = t - 1; }
+        if (!values.length) {
+          for (var index = 0; index < t; index++) {
+            if (!grid) {
+              values.push(Math.abs(fromIndex - index));
+            } else {
+              var fromX = !fromCenter ? fromIndex%grid[0] : (grid[0]-1)/2;
+              var fromY = !fromCenter ? Math.floor(fromIndex/grid[0]) : (grid[1]-1)/2;
+              var toX = index%grid[0];
+              var toY = Math.floor(index/grid[0]);
+              var distanceX = fromX - toX;
+              var distanceY = fromY - toY;
+              var value = Math.sqrt(distanceX * distanceX + distanceY * distanceY);
+              if (axis === 'x') { value = -distanceX; }
+              if (axis === 'y') { value = -distanceY; }
+              values.push(value);
+            }
+            maxValue = Math.max.apply(Math, values);
+          }
+          if (easing) { values = values.map(function (val) { return easing(val / maxValue) * maxValue; }); }
+          if (direction === 'reverse') { values = values.map(function (val) { return axis ? (val < 0) ? val * -1 : -val : Math.abs(maxValue - val); }); }
+        }
+        var spacing = isRange ? (val2 - val1) / maxValue : val1;
+        return start + (spacing * (Math.round(values[i] * 100) / 100)) + unit;
+      }
+    }
+
+    // Timeline
+
+    function timeline(params) {
+      if ( params === void 0 ) params = {};
+
+      var tl = anime(params);
+      tl.duration = 0;
+      tl.add = function(instanceParams, timelineOffset) {
+        var tlIndex = activeInstances.indexOf(tl);
+        var children = tl.children;
+        if (tlIndex > -1) { activeInstances.splice(tlIndex, 1); }
+        function passThrough(ins) { ins.passThrough = true; }
+        for (var i = 0; i < children.length; i++) { passThrough(children[i]); }
+        var insParams = mergeObjects(instanceParams, replaceObjectProps(defaultTweenSettings, params));
+        insParams.targets = insParams.targets || params.targets;
+        var tlDuration = tl.duration;
+        insParams.autoplay = false;
+        insParams.direction = tl.direction;
+        insParams.timelineOffset = is.und(timelineOffset) ? tlDuration : getRelativeValue(timelineOffset, tlDuration);
+        passThrough(tl);
+        tl.seek(insParams.timelineOffset);
+        var ins = anime(insParams);
+        passThrough(ins);
+        children.push(ins);
+        var timings = getInstanceTimings(children, params);
+        tl.delay = timings.delay;
+        tl.endDelay = timings.endDelay;
+        tl.duration = timings.duration;
+        tl.seek(0);
+        tl.reset();
+        if (tl.autoplay) { tl.play(); }
+        return tl;
+      };
+      return tl;
+    }
+
+    anime.version = '3.2.1';
+    anime.speed = 1;
+    // TODO:#review: naming, documentation
+    anime.suspendWhenDocumentHidden = true;
+    anime.running = activeInstances;
+    anime.remove = removeTargetsFromActiveInstances;
+    anime.get = getOriginalTargetValue;
+    anime.set = setTargetsValue;
+    anime.convertPx = convertPxToUnit;
+    anime.path = getPath;
+    anime.setDashoffset = setDashoffset;
+    anime.stagger = stagger;
+    anime.timeline = timeline;
+    anime.easing = parseEasings;
+    anime.penner = penner;
+    anime.random = function (min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; };
+
+    /* src/CuttingMachine.svelte generated by Svelte v3.46.3 */
+
+    const { console: console_1$2 } = globals;
+    const file$2 = "src/CuttingMachine.svelte";
+
+    function create_fragment$3(ctx) {
+    	let main;
+    	let div8;
+    	let div7;
+    	let div5;
+    	let div4;
+    	let div0;
+    	let t0;
+    	let div1;
+    	let t1;
+    	let div2;
+    	let t2;
+    	let div3;
+    	let t3;
+    	let div6;
+    	let button0;
+    	let button1;
+    	let mounted;
+    	let dispose;
+
+    	const block = {
+    		c: function create() {
+    			main = element("main");
+    			div8 = element("div");
+    			div7 = element("div");
+    			div5 = element("div");
+    			div4 = element("div");
+    			div0 = element("div");
+    			t0 = space();
+    			div1 = element("div");
+    			t1 = space();
+    			div2 = element("div");
+    			t2 = space();
+    			div3 = element("div");
+    			t3 = space();
+    			div6 = element("div");
+    			button0 = element("button");
+    			button0.textContent = "Старт";
+    			button1 = element("button");
+    			button1.textContent = "Стоп";
+    			attr_dev(div0, "class", "svelte-1eedzwq");
+    			add_location(div0, file$2, 94, 10, 2703);
+    			attr_dev(div1, "class", "svelte-1eedzwq");
+    			add_location(div1, file$2, 95, 10, 2721);
+    			attr_dev(div2, "class", "svelte-1eedzwq");
+    			add_location(div2, file$2, 96, 10, 2739);
+    			attr_dev(div3, "class", "svelte-1eedzwq");
+    			add_location(div3, file$2, 97, 10, 2757);
+    			attr_dev(div4, "id", "decor-cutting-machine");
+    			attr_dev(div4, "class", "svelte-1eedzwq");
+    			add_location(div4, file$2, 93, 8, 2639);
+    			attr_dev(div5, "class", "col-8 d-flex justify-content-center");
+    			add_location(div5, file$2, 92, 6, 2581);
+    			attr_dev(button0, "class", "btn-circle btn-success svelte-1eedzwq");
+    			add_location(button0, file$2, 101, 8, 2869);
+    			attr_dev(button1, "class", "btn-circle btn-danger svelte-1eedzwq");
+    			add_location(button1, file$2, 107, 9, 3043);
+    			attr_dev(div6, "class", "col-4 d-flex flex-column justify-content-around");
+    			add_location(div6, file$2, 100, 6, 2799);
+    			attr_dev(div7, "class", "mt-4 row");
+    			add_location(div7, file$2, 91, 4, 2552);
+    			attr_dev(div8, "class", "container-md");
+    			add_location(div8, file$2, 90, 2, 2521);
+    			attr_dev(main, "class", "svelte-1eedzwq");
+    			add_location(main, file$2, 89, 0, 2512);
+    		},
+    		l: function claim(nodes) {
+    			throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
+    		},
+    		m: function mount(target, anchor) {
+    			insert_dev(target, main, anchor);
+    			append_dev(main, div8);
+    			append_dev(div8, div7);
+    			append_dev(div7, div5);
+    			append_dev(div5, div4);
+    			append_dev(div4, div0);
+    			append_dev(div4, t0);
+    			append_dev(div4, div1);
+    			append_dev(div4, t1);
+    			append_dev(div4, div2);
+    			append_dev(div4, t2);
+    			append_dev(div4, div3);
+    			/*div4_binding*/ ctx[3](div4);
+    			append_dev(div7, t3);
+    			append_dev(div7, div6);
+    			append_dev(div6, button0);
+    			append_dev(div6, button1);
+
+    			if (!mounted) {
+    				dispose = [
+    					listen_dev(button0, "click", /*click_handler*/ ctx[4], false, false, false),
+    					listen_dev(button1, "click", /*click_handler_1*/ ctx[5], false, false, false)
+    				];
+
+    				mounted = true;
+    			}
+    		},
+    		p: noop,
+    		i: noop,
+    		o: noop,
+    		d: function destroy(detaching) {
+    			if (detaching) detach_dev(main);
+    			/*div4_binding*/ ctx[3](null);
+    			mounted = false;
+    			run_all(dispose);
+    		}
+    	};
+
+    	dispatch_dev("SvelteRegisterBlock", {
+    		block,
+    		id: create_fragment$3.name,
+    		type: "component",
+    		source: "",
+    		ctx
+    	});
+
+    	return block;
+    }
+
+    function instance$3($$self, $$props, $$invalidate) {
+    	let { $$slots: slots = {}, $$scope } = $$props;
+    	validate_slots('CuttingMachine', slots, []);
+    	let decorDiv;
+    	let stopMachine = false;
+
+    	function startMachine() {
+    		console.log("Hello World");
+    		let decor;
+    		let moreSetsBool;
+
+    		function assignDecorANDSetsBool(arr) {
+    			decor = arr[0];
+    			moreSetsBool = arr[1];
+    			animation(decor);
+
+    			if (moreSetsBool == 1) {
+    				if (!stopMachine) {
+    					setTimeout(startMachine, 35000);
+    				}
+    			}
+    		}
+
+    		eel.get_printing_set()(assignDecorANDSetsBool);
+    	} // startAnimation(decor);
+
+    	function stopMachineFunc() {
+    		$$invalidate(1, stopMachine = true);
+    	}
+
+    	function animation(decor) {
+
+    		console.log(decor);
+
+    		if (decor == "H3331") {
+    			$$invalidate(0, decorDiv.style.backgroundImage = "url('./decors/NNEB_OAK.jpg')", decorDiv);
+    		}
+
+    		if (decor == "H1401") {
+    			$$invalidate(0, decorDiv.style.backgroundImage = "url('./decors/EG_H1401ST22_Cascina_Pine.jpg')", decorDiv);
+    		}
+
+    		if (decor == "U960ST9") {
+    			$$invalidate(0, decorDiv.style.backgroundImage = "url('./decors/EG_U960ST9_Onyx_Grey.jpg')", decorDiv);
+    		}
+
+    		$$invalidate(0, decorDiv.style.opacity = "100", decorDiv);
+    		let tl = anime.timeline({ duration: 7500, easing: "linear" });
+
+    		function resetElements() {
+    			document.querySelectorAll("#decor-cutting-machine > div").forEach(element => {
+    				element.style.opacity = 0;
+    				element.style.width = "6px";
+    				element.style.height = "6px";
+    			});
+    		}
+
+    		resetElements();
+
+    		tl.add({
+    			targets: " #decor-cutting-machine > div:nth-child(1)",
+    			height: "100%",
+    			begin() {
+    				decorDiv.querySelector("div:nth-child(1)").style.opacity = 100;
+    			}
+    		}).add({
+    			targets: " #decor-cutting-machine > div:nth-child(2)",
+    			height: "100%",
+    			begin() {
+    				decorDiv.querySelector("div:nth-child(2)").style.opacity = 100;
+    			}
+    		}).add({
+    			targets: " #decor-cutting-machine > div:nth-child(3)",
+    			width: "33.34%",
+    			begin() {
+    				decorDiv.querySelector("div:nth-child(3)").style.opacity = 100;
+    			}
+    		}).add({
+    			targets: " #decor-cutting-machine > div:nth-child(4)",
+    			width: "33.34%",
+    			begin() {
+    				decorDiv.querySelector("div:nth-child(4)").style.opacity = 100;
+    			}
+    		});
+    	}
+
+    	const writable_props = [];
+
+    	Object.keys($$props).forEach(key => {
+    		if (!~writable_props.indexOf(key) && key.slice(0, 2) !== '$$' && key !== 'slot') console_1$2.warn(`<CuttingMachine> was created with unknown prop '${key}'`);
+    	});
+
+    	function div4_binding($$value) {
+    		binding_callbacks[$$value ? 'unshift' : 'push'](() => {
+    			decorDiv = $$value;
+    			$$invalidate(0, decorDiv);
+    		});
+    	}
+
+    	const click_handler = () => {
+    		$$invalidate(1, stopMachine = false);
+    		startMachine();
+    	};
+
+    	const click_handler_1 = () => {
+    		$$invalidate(1, stopMachine = true);
+    	};
+
+    	$$self.$capture_state = () => ({
+    		anime,
+    		linear: identity,
+    		decorDiv,
+    		stopMachine,
+    		startMachine,
+    		stopMachineFunc,
+    		animation
+    	});
+
+    	$$self.$inject_state = $$props => {
+    		if ('decorDiv' in $$props) $$invalidate(0, decorDiv = $$props.decorDiv);
+    		if ('stopMachine' in $$props) $$invalidate(1, stopMachine = $$props.stopMachine);
+    	};
+
+    	if ($$props && "$$inject" in $$props) {
+    		$$self.$inject_state($$props.$$inject);
+    	}
+
+    	return [
+    		decorDiv,
+    		stopMachine,
+    		startMachine,
+    		div4_binding,
+    		click_handler,
+    		click_handler_1
+    	];
+    }
+
+    class CuttingMachine extends SvelteComponentDev {
+    	constructor(options) {
+    		super(options);
+    		init(this, options, instance$3, create_fragment$3, safe_not_equal, {});
+
+    		dispatch_dev("SvelteRegisterComponent", {
+    			component: this,
+    			tagName: "CuttingMachine",
+    			options,
+    			id: create_fragment$3.name
+    		});
+    	}
+    }
+
+    /* src/Listener.svelte generated by Svelte v3.46.3 */
+
+    function create_fragment$2(ctx) {
+    	const block = {
+    		c: noop,
+    		l: function claim(nodes) {
+    			throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
+    		},
+    		m: noop,
+    		p: noop,
+    		i: noop,
+    		o: noop,
+    		d: noop
+    	};
+
+    	dispatch_dev("SvelteRegisterBlock", {
+    		block,
+    		id: create_fragment$2.name,
+    		type: "component",
+    		source: "",
+    		ctx
+    	});
+
+    	return block;
+    }
+
+    function instance$2($$self, $$props, $$invalidate) {
+    	let { $$slots: slots = {}, $$scope } = $$props;
+    	validate_slots('Listener', slots, []);
+    	let { path } = $$props;
+    	const dispatch = createEventDispatcher();
+    	let initiation = true;
+    	const db = getDatabase(app$1);
+    	const starCountRef = ref(db, path);
+
+    	onValue(starCountRef, snapshot => {
+    		if (initiation) {
+    			initiation = false;
+    		} else {
+    			dispatch("valueChange", { newValue: snapshot.val() });
+    		}
+    	});
+
+    	const writable_props = ['path'];
+
+    	Object.keys($$props).forEach(key => {
+    		if (!~writable_props.indexOf(key) && key.slice(0, 2) !== '$$' && key !== 'slot') console.warn(`<Listener> was created with unknown prop '${key}'`);
+    	});
+
+    	$$self.$$set = $$props => {
+    		if ('path' in $$props) $$invalidate(0, path = $$props.path);
+    	};
+
+    	$$self.$capture_state = () => ({
+    		path,
+    		app: app$1,
+    		getDatabase,
+    		ref,
+    		onValue,
+    		createEventDispatcher,
+    		dispatch,
+    		initiation,
+    		db,
+    		starCountRef
+    	});
+
+    	$$self.$inject_state = $$props => {
+    		if ('path' in $$props) $$invalidate(0, path = $$props.path);
+    		if ('initiation' in $$props) initiation = $$props.initiation;
+    	};
+
+    	if ($$props && "$$inject" in $$props) {
+    		$$self.$inject_state($$props.$$inject);
+    	}
+
+    	return [path];
+    }
+
+    class Listener extends SvelteComponentDev {
+    	constructor(options) {
+    		super(options);
+    		init(this, options, instance$2, create_fragment$2, safe_not_equal, { path: 0 });
+
+    		dispatch_dev("SvelteRegisterComponent", {
+    			component: this,
+    			tagName: "Listener",
+    			options,
+    			id: create_fragment$2.name
+    		});
+
+    		const { ctx } = this.$$;
+    		const props = options.props || {};
+
+    		if (/*path*/ ctx[0] === undefined && !('path' in props)) {
+    			console.warn("<Listener> was created without expected prop 'path'");
+    		}
+    	}
+
+    	get path() {
+    		throw new Error("<Listener>: Props cannot be read directly from the component instance unless compiling with 'accessors: true' or '<svelte:options accessors/>'");
+    	}
+
+    	set path(value) {
+    		throw new Error("<Listener>: Props cannot be set directly on the component instance unless compiling with 'accessors: true' or '<svelte:options accessors/>'");
+    	}
+    }
+
+    /* src/MachineKant.svelte generated by Svelte v3.46.3 */
+
+    const { console: console_1$1 } = globals;
+    const file$1 = "src/MachineKant.svelte";
+
+    function create_fragment$1(ctx) {
+    	let listener;
+    	let t0;
+    	let div0;
+    	let t1;
+    	let div13;
+    	let div10;
+    	let div9;
+    	let div2;
+    	let div1;
+    	let t2;
+    	let div4;
+    	let div3;
+    	let t3;
+    	let div6;
+    	let div5;
+    	let t4;
+    	let div8;
+    	let div7;
+    	let t5;
+    	let div12;
+    	let div11;
+    	let current;
+    	listener = new Listener({ props: { path: "/kant" }, $$inline: true });
+    	listener.$on("valueChange", /*startAnimation*/ ctx[2]);
+
+    	const block = {
+    		c: function create() {
+    			create_component(listener.$$.fragment);
+    			t0 = space();
+    			div0 = element("div");
+    			t1 = space();
+    			div13 = element("div");
+    			div10 = element("div");
+    			div9 = element("div");
+    			div2 = element("div");
+    			div1 = element("div");
+    			t2 = space();
+    			div4 = element("div");
+    			div3 = element("div");
+    			t3 = space();
+    			div6 = element("div");
+    			div5 = element("div");
+    			t4 = space();
+    			div8 = element("div");
+    			div7 = element("div");
+    			t5 = space();
+    			div12 = element("div");
+    			div11 = element("div");
+    			attr_dev(div0, "class", "container-md");
+    			add_location(div0, file$1, 101, 0, 3275);
+    			attr_dev(div1, "class", "el svelte-w5rg3d");
+    			add_location(div1, file$1, 106, 8, 3501);
+    			attr_dev(div2, "class", "d-flex flex-row justify-content-start svelte-w5rg3d");
+    			add_location(div2, file$1, 105, 6, 3441);
+    			attr_dev(div3, "class", "el svelte-w5rg3d");
+    			add_location(div3, file$1, 109, 8, 3602);
+    			attr_dev(div4, "class", "d-flex flex-column justify-content-start svelte-w5rg3d");
+    			add_location(div4, file$1, 108, 6, 3539);
+    			attr_dev(div5, "class", "el svelte-w5rg3d");
+    			add_location(div5, file$1, 111, 55, 3689);
+    			attr_dev(div6, "class", "d-flex flex-row justify-content-end svelte-w5rg3d");
+    			add_location(div6, file$1, 111, 6, 3640);
+    			attr_dev(div7, "class", "el svelte-w5rg3d");
+    			add_location(div7, file$1, 113, 8, 3781);
+    			attr_dev(div8, "class", "d-flex flex-column justify-content-end svelte-w5rg3d");
+    			add_location(div8, file$1, 112, 6, 3720);
+    			attr_dev(div9, "id", "decor-machine-kant");
+    			attr_dev(div9, "class", "svelte-w5rg3d");
+    			add_location(div9, file$1, 104, 4, 3384);
+    			attr_dev(div10, "class", "col-8 d-flex justify-content-center");
+    			add_location(div10, file$1, 103, 2, 3330);
+    			attr_dev(div11, "class", "decor-info");
+    			add_location(div11, file$1, 118, 4, 3871);
+    			attr_dev(div12, "class", "col-4 d-flex mt-5");
+    			add_location(div12, file$1, 117, 2, 3835);
+    			attr_dev(div13, "class", "row mt-4 ");
+    			add_location(div13, file$1, 102, 0, 3304);
+    		},
+    		l: function claim(nodes) {
+    			throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
+    		},
+    		m: function mount(target, anchor) {
+    			mount_component(listener, target, anchor);
+    			insert_dev(target, t0, anchor);
+    			insert_dev(target, div0, anchor);
+    			insert_dev(target, t1, anchor);
+    			insert_dev(target, div13, anchor);
+    			append_dev(div13, div10);
+    			append_dev(div10, div9);
+    			append_dev(div9, div2);
+    			append_dev(div2, div1);
+    			append_dev(div9, t2);
+    			append_dev(div9, div4);
+    			append_dev(div4, div3);
+    			append_dev(div9, t3);
+    			append_dev(div9, div6);
+    			append_dev(div6, div5);
+    			append_dev(div9, t4);
+    			append_dev(div9, div8);
+    			append_dev(div8, div7);
+    			/*div9_binding*/ ctx[3](div9);
+    			append_dev(div13, t5);
+    			append_dev(div13, div12);
+    			append_dev(div12, div11);
+    			/*div11_binding*/ ctx[4](div11);
+    			current = true;
+    		},
+    		p: noop,
+    		i: function intro(local) {
+    			if (current) return;
+    			transition_in(listener.$$.fragment, local);
+    			current = true;
+    		},
+    		o: function outro(local) {
+    			transition_out(listener.$$.fragment, local);
+    			current = false;
+    		},
+    		d: function destroy(detaching) {
+    			destroy_component(listener, detaching);
+    			if (detaching) detach_dev(t0);
+    			if (detaching) detach_dev(div0);
+    			if (detaching) detach_dev(t1);
+    			if (detaching) detach_dev(div13);
+    			/*div9_binding*/ ctx[3](null);
+    			/*div11_binding*/ ctx[4](null);
+    		}
+    	};
+
+    	dispatch_dev("SvelteRegisterBlock", {
+    		block,
     		id: create_fragment$1.name,
     		type: "component",
     		source: "",
@@ -14473,65 +17177,140 @@ var app = (function () {
 
     function instance$1($$self, $$props, $$invalidate) {
     	let { $$slots: slots = {}, $$scope } = $$props;
-    	validate_slots('Nav', slots, []);
-    	let { selectedOption } = $$props;
-    	const writable_props = ['selectedOption'];
+    	validate_slots('MachineKant', slots, []);
+    	let decorDiv;
+    	let decorInfoDiv;
+    	let ongoingAnimation = false;
+
+    	function startAnimation(event) {
+    		let barcode = event.detail.newValue;
+
+    		eel.find_barcode(barcode)(barcodeObj => {
+    			if (!ongoingAnimation) {
+    				ongoingAnimation = true;
+
+    				function fillDecorInfoDiv() {
+    					console.log(barcodeObj);
+    					$$invalidate(1, decorInfoDiv.innerHTML += `<span style="color: white;" class="d-block ">  [ Height: ${barcodeObj["Heigh"]}см ]</span>`, decorInfoDiv);
+    					$$invalidate(1, decorInfoDiv.innerHTML += `<span style="color: white;" class="d-block ">  [ Widht: ${barcodeObj["Widht"]}см ]</span>`, decorInfoDiv);
+    				}
+
+    				fillDecorInfoDiv();
+    				$$invalidate(0, decorDiv.style.opacity = "100", decorDiv);
+
+    				let decor = barcodeObj["Decor"];
+    				console.log(decor);
+
+    				if (decor == "H3331") {
+    					$$invalidate(0, decorDiv.style.backgroundImage = "url('./decors/NNEB_OAK.jpg')", decorDiv);
+    				}
+
+    				if (decor == "H1401") {
+    					$$invalidate(0, decorDiv.style.backgroundImage = "url('./decors/EG_H1401ST22_Cascina_Pine.jpg')", decorDiv);
+    				}
+
+    				if (decor == "U960ST9") {
+    					$$invalidate(0, decorDiv.style.backgroundImage = "url('./decors/EG_U960ST9_Onyx_Grey.jpg')", decorDiv);
+    				}
+
+    				function resetElements() {
+    					document.querySelectorAll("#decor-machine-kant> div").forEach(div => {
+    						let element = div.querySelector(".el");
+    						element.style.opacity = 0;
+    						element.style.width = "8px";
+    						element.style.height = "8px";
+    					});
+    				}
+
+    				resetElements();
+    				let tl = anime.timeline({ duration: 7500, easing: "linear" });
+
+    				tl.add({
+    					targets: " #decor-machine-kant > div:nth-child(1) > .el",
+    					width: "100%",
+    					begin() {
+    						decorDiv.querySelector("div:nth-child(1) > .el").style.opacity = 100;
+    					}
+    				}).add({
+    					targets: " #decor-machine-kant > div:nth-child(2) > .el",
+    					height: "100%",
+    					begin() {
+    						decorDiv.querySelector("div:nth-child(2) > .el").style.opacity = 100;
+    					}
+    				}).add({
+    					targets: " #decor-machine-kant > div:nth-child(3) > .el",
+    					width: "100%",
+    					begin() {
+    						decorDiv.querySelector("div:nth-child(3) > .el").style.opacity = 100;
+    					}
+    				}).add({
+    					targets: " #decor-machine-kant > div:nth-child(4) > .el",
+    					height: "100%",
+    					begin() {
+    						decorDiv.querySelector("div:nth-child(4) > .el").style.opacity = 100;
+    					},
+    					complete() {
+    						ongoingAnimation = false;
+    					}
+    				});
+    			}
+    		});
+    	}
+
+    	const writable_props = [];
 
     	Object.keys($$props).forEach(key => {
-    		if (!~writable_props.indexOf(key) && key.slice(0, 2) !== '$$' && key !== 'slot') console.warn(`<Nav> was created with unknown prop '${key}'`);
+    		if (!~writable_props.indexOf(key) && key.slice(0, 2) !== '$$' && key !== 'slot') console_1$1.warn(`<MachineKant> was created with unknown prop '${key}'`);
     	});
 
-    	const click_handler = optionName => {
-    		$$invalidate(0, selectedOption = optionName);
-    	};
+    	function div9_binding($$value) {
+    		binding_callbacks[$$value ? 'unshift' : 'push'](() => {
+    			decorDiv = $$value;
+    			$$invalidate(0, decorDiv);
+    		});
+    	}
 
-    	const click_handler_1 = optionName => {
-    		$$invalidate(0, selectedOption = optionName);
-    	};
+    	function div11_binding($$value) {
+    		binding_callbacks[$$value ? 'unshift' : 'push'](() => {
+    			decorInfoDiv = $$value;
+    			$$invalidate(1, decorInfoDiv);
+    		});
+    	}
 
-    	$$self.$$set = $$props => {
-    		if ('selectedOption' in $$props) $$invalidate(0, selectedOption = $$props.selectedOption);
-    	};
-
-    	$$self.$capture_state = () => ({ selectedOption });
+    	$$self.$capture_state = () => ({
+    		anime,
+    		linear: identity,
+    		Listener,
+    		decorDiv,
+    		decorInfoDiv,
+    		ongoingAnimation,
+    		startAnimation
+    	});
 
     	$$self.$inject_state = $$props => {
-    		if ('selectedOption' in $$props) $$invalidate(0, selectedOption = $$props.selectedOption);
+    		if ('decorDiv' in $$props) $$invalidate(0, decorDiv = $$props.decorDiv);
+    		if ('decorInfoDiv' in $$props) $$invalidate(1, decorInfoDiv = $$props.decorInfoDiv);
+    		if ('ongoingAnimation' in $$props) ongoingAnimation = $$props.ongoingAnimation;
     	};
 
     	if ($$props && "$$inject" in $$props) {
     		$$self.$inject_state($$props.$$inject);
     	}
 
-    	return [selectedOption, click_handler, click_handler_1];
+    	return [decorDiv, decorInfoDiv, startAnimation, div9_binding, div11_binding];
     }
 
-    class Nav extends SvelteComponentDev {
+    class MachineKant extends SvelteComponentDev {
     	constructor(options) {
     		super(options);
-    		init(this, options, instance$1, create_fragment$1, safe_not_equal, { selectedOption: 0 });
+    		init(this, options, instance$1, create_fragment$1, safe_not_equal, {});
 
     		dispatch_dev("SvelteRegisterComponent", {
     			component: this,
-    			tagName: "Nav",
+    			tagName: "MachineKant",
     			options,
     			id: create_fragment$1.name
     		});
-
-    		const { ctx } = this.$$;
-    		const props = options.props || {};
-
-    		if (/*selectedOption*/ ctx[0] === undefined && !('selectedOption' in props)) {
-    			console.warn("<Nav> was created without expected prop 'selectedOption'");
-    		}
-    	}
-
-    	get selectedOption() {
-    		throw new Error("<Nav>: Props cannot be read directly from the component instance unless compiling with 'accessors: true' or '<svelte:options accessors/>'");
-    	}
-
-    	set selectedOption(value) {
-    		throw new Error("<Nav>: Props cannot be set directly on the component instance unless compiling with 'accessors: true' or '<svelte:options accessors/>'");
     	}
     }
 
@@ -14540,7 +17319,7 @@ var app = (function () {
     const { console: console_1 } = globals;
     const file = "src/App.svelte";
 
-    // (39:2) {#if loading}
+    // (58:2) {#if loading}
     function create_if_block_1(ctx) {
     	let div;
     	let span;
@@ -14550,9 +17329,9 @@ var app = (function () {
     			div = element("div");
     			span = element("span");
     			span.textContent = "Зареждане..";
-    			add_location(span, file, 40, 6, 863);
+    			add_location(span, file, 59, 6, 1564);
     			attr_dev(div, "class", "loading-screen");
-    			add_location(div, file, 39, 4, 828);
+    			add_location(div, file, 58, 4, 1529);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, div, anchor);
@@ -14567,26 +17346,86 @@ var app = (function () {
     		block,
     		id: create_if_block_1.name,
     		type: "if",
-    		source: "(39:2) {#if loading}",
+    		source: "(58:2) {#if loading}",
     		ctx
     	});
 
     	return block;
     }
 
-    // (44:2) {#if loadingCompleted}
+    // (63:2) {#if loadingCompleted}
     function create_if_block(ctx) {
-    	let t;
+    	let div4;
+    	let div0;
+    	let cuttingmachine;
+    	let t0;
+    	let div1;
+    	let machinekant;
+    	let t1;
+    	let div2;
+    	let t2;
+    	let div3;
+    	let current;
+    	cuttingmachine = new CuttingMachine({ $$inline: true });
+    	machinekant = new MachineKant({ $$inline: true });
 
     	const block = {
     		c: function create() {
-    			t = text("Hello World!");
+    			div4 = element("div");
+    			div0 = element("div");
+    			create_component(cuttingmachine.$$.fragment);
+    			t0 = space();
+    			div1 = element("div");
+    			create_component(machinekant.$$.fragment);
+    			t1 = space();
+    			div2 = element("div");
+    			t2 = space();
+    			div3 = element("div");
+    			attr_dev(div0, "class", "svelte-ix5t9r");
+    			add_location(div0, file, 64, 6, 1693);
+    			attr_dev(div1, "class", "svelte-ix5t9r");
+    			add_location(div1, file, 65, 6, 1729);
+    			set_style(div2, "background-color", "red");
+    			attr_dev(div2, "class", "svelte-ix5t9r");
+    			add_location(div2, file, 66, 6, 1762);
+    			set_style(div3, "background-color", "yellow");
+    			attr_dev(div3, "class", "svelte-ix5t9r");
+    			add_location(div3, file, 67, 6, 1808);
+    			attr_dev(div4, "id", "machines-menu");
+    			attr_dev(div4, "class", "svelte-ix5t9r");
+    			add_location(div4, file, 63, 4, 1637);
     		},
     		m: function mount(target, anchor) {
-    			insert_dev(target, t, anchor);
+    			insert_dev(target, div4, anchor);
+    			append_dev(div4, div0);
+    			mount_component(cuttingmachine, div0, null);
+    			append_dev(div4, t0);
+    			append_dev(div4, div1);
+    			mount_component(machinekant, div1, null);
+    			append_dev(div4, t1);
+    			append_dev(div4, div2);
+    			append_dev(div4, t2);
+    			append_dev(div4, div3);
+    			/*div4_binding*/ ctx[6](div4);
+    			current = true;
+    		},
+    		p: noop,
+    		i: function intro(local) {
+    			if (current) return;
+    			transition_in(cuttingmachine.$$.fragment, local);
+    			transition_in(machinekant.$$.fragment, local);
+    			current = true;
+    		},
+    		o: function outro(local) {
+    			transition_out(cuttingmachine.$$.fragment, local);
+    			transition_out(machinekant.$$.fragment, local);
+    			current = false;
     		},
     		d: function destroy(detaching) {
-    			if (detaching) detach_dev(t);
+    			if (detaching) detach_dev(div4);
+    			destroy_component(cuttingmachine);
+    			destroy_component(machinekant);
+    			/*div4_binding*/ ctx[6](null);
     		}
     	};
 
@@ -14594,7 +17433,7 @@ var app = (function () {
     		block,
     		id: create_if_block.name,
     		type: "if",
-    		source: "(44:2) {#if loadingCompleted}",
+    		source: "(63:2) {#if loadingCompleted}",
     		ctx
     	});
 
@@ -14608,22 +17447,12 @@ var app = (function () {
     	let t1;
     	let main;
     	let t2;
-    	let t3;
-    	let button;
     	let current;
-    	let mounted;
-    	let dispose;
     	header = new Header({ $$inline: true });
-    	header.$on("buttonPressed", /*buttonPressed_handler*/ ctx[3]);
-    	header.$on("loadingCompleted", /*loadingCompleted_handler*/ ctx[4]);
-
-    	nav = new Nav({
-    			props: {
-    				selectedOption: /*selectedOption*/ ctx[2]
-    			},
-    			$$inline: true
-    		});
-
+    	header.$on("buttonPressed", /*buttonPressed_handler*/ ctx[4]);
+    	header.$on("loadingCompleted", /*loadingCompleted_handler*/ ctx[5]);
+    	nav = new Nav({ $$inline: true });
+    	nav.$on("optionChange", /*onSelectionOptionChange*/ ctx[3]);
     	let if_block0 = /*loading*/ ctx[0] && create_if_block_1(ctx);
     	let if_block1 = /*loadingCompleted*/ ctx[1] && create_if_block(ctx);
 
@@ -14637,13 +17466,8 @@ var app = (function () {
     			if (if_block0) if_block0.c();
     			t2 = space();
     			if (if_block1) if_block1.c();
-    			t3 = space();
-    			button = element("button");
-    			button.textContent = "Click Me";
-    			attr_dev(button, "class", "btn btn-danger");
-    			add_location(button, file, 46, 2, 959);
-    			attr_dev(main, "class", "svelte-1pfl2xt");
-    			add_location(main, file, 37, 0, 801);
+    			attr_dev(main, "class", "svelte-ix5t9r");
+    			add_location(main, file, 56, 0, 1502);
     		},
     		l: function claim(nodes) {
     			throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
@@ -14657,14 +17481,7 @@ var app = (function () {
     			if (if_block0) if_block0.m(main, null);
     			append_dev(main, t2);
     			if (if_block1) if_block1.m(main, null);
-    			append_dev(main, t3);
-    			append_dev(main, button);
     			current = true;
-
-    			if (!mounted) {
-    				dispose = listen_dev(button, "click", testFunc, false, false, false);
-    				mounted = true;
-    			}
     		},
     		p: function update(ctx, [dirty]) {
     			if (/*loading*/ ctx[0]) {
@@ -14679,25 +17496,39 @@ var app = (function () {
     			}
 
     			if (/*loadingCompleted*/ ctx[1]) {
-    				if (if_block1) ; else {
+    				if (if_block1) {
+    					if_block1.p(ctx, dirty);
+
+    					if (dirty & /*loadingCompleted*/ 2) {
+    						transition_in(if_block1, 1);
+    					}
+    				} else {
     					if_block1 = create_if_block(ctx);
     					if_block1.c();
-    					if_block1.m(main, t3);
+    					transition_in(if_block1, 1);
+    					if_block1.m(main, null);
     				}
     			} else if (if_block1) {
-    				if_block1.d(1);
-    				if_block1 = null;
+    				group_outros();
+
+    				transition_out(if_block1, 1, 1, () => {
+    					if_block1 = null;
+    				});
+
+    				check_outros();
     			}
     		},
     		i: function intro(local) {
     			if (current) return;
     			transition_in(header.$$.fragment, local);
     			transition_in(nav.$$.fragment, local);
+    			transition_in(if_block1);
     			current = true;
     		},
     		o: function outro(local) {
     			transition_out(header.$$.fragment, local);
     			transition_out(nav.$$.fragment, local);
+    			transition_out(if_block1);
     			current = false;
     		},
     		d: function destroy(detaching) {
@@ -14708,8 +17539,6 @@ var app = (function () {
     			if (detaching) detach_dev(main);
     			if (if_block0) if_block0.d();
     			if (if_block1) if_block1.d();
-    			mounted = false;
-    			dispose();
     		}
     	};
 
@@ -14724,22 +17553,43 @@ var app = (function () {
     	return block;
     }
 
-    function testFunc() {
-    	function testReturnJS(n) {
-    		console.log(`Got this from python: ${n}`);
-    	}
-
-    	console.log(eel.test_returns_py());
-    	eel.test_returns_py()(testReturnJS);
-    }
-
     function instance($$self, $$props, $$invalidate) {
     	let { $$slots: slots = {}, $$scope } = $$props;
     	validate_slots('App', slots, []);
-    	let selectedOption;
     	let loading;
     	let loadingCompleted;
     	let test = "Test";
+    	let machinesMenu;
+
+    	function onSelectionOptionChange(event) {
+    		let selectedOption = event.detail.option;
+    		let optionMenus = machinesMenu.querySelectorAll("#machines-menu > div");
+
+    		function allElementsZeroZ() {
+    			optionMenus.forEach(element => {
+    				element.style.zIndex = "0";
+    			});
+    		}
+
+    		allElementsZeroZ();
+
+    		if (selectedOption == "Машина Рязане") {
+    			optionMenus[0].style.zIndex = "1000";
+    		}
+
+    		if (selectedOption == "Машина Кант") {
+    			optionMenus[1].style.zIndex = "1000";
+    		}
+
+    		if (selectedOption == "Машина Дупчене") {
+    			optionMenus[2].style.zIndex = "1000";
+    		}
+
+    		if (selectedOption == "Склад") {
+    			optionMenus[3].style.zIndex = "1000";
+    		}
+    	}
+
     	const writable_props = [];
 
     	Object.keys($$props).forEach(key => {
@@ -14748,29 +17598,40 @@ var app = (function () {
 
     	const buttonPressed_handler = () => {
     		$$invalidate(0, loading = true);
+    		console.log("Loading Started");
     	};
 
     	const loadingCompleted_handler = () => {
     		$$invalidate(0, loading = false);
     		$$invalidate(1, loadingCompleted = true);
+    		console.log("Loading Completed");
     	};
+
+    	function div4_binding($$value) {
+    		binding_callbacks[$$value ? 'unshift' : 'push'](() => {
+    			machinesMenu = $$value;
+    			$$invalidate(2, machinesMenu);
+    		});
+    	}
 
     	$$self.$capture_state = () => ({
     		element,
     		Header,
     		Nav,
-    		selectedOption,
+    		CuttingMachine,
+    		MachineKant,
     		loading,
     		loadingCompleted,
     		test,
-    		testFunc
+    		machinesMenu,
+    		onSelectionOptionChange
     	});
 
     	$$self.$inject_state = $$props => {
-    		if ('selectedOption' in $$props) $$invalidate(2, selectedOption = $$props.selectedOption);
     		if ('loading' in $$props) $$invalidate(0, loading = $$props.loading);
     		if ('loadingCompleted' in $$props) $$invalidate(1, loadingCompleted = $$props.loadingCompleted);
     		if ('test' in $$props) test = $$props.test;
+    		if ('machinesMenu' in $$props) $$invalidate(2, machinesMenu = $$props.machinesMenu);
     	};
 
     	if ($$props && "$$inject" in $$props) {
@@ -14780,9 +17641,11 @@ var app = (function () {
     	return [
     		loading,
     		loadingCompleted,
-    		selectedOption,
+    		machinesMenu,
+    		onSelectionOptionChange,
     		buttonPressed_handler,
-    		loadingCompleted_handler
+    		loadingCompleted_handler,
+    		div4_binding
     	];
     }
 

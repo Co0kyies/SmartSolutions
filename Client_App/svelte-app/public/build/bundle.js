@@ -22675,8 +22675,8 @@ var app = (function () {
     		{
     			style: div_style_value = /*navbar*/ ctx[1] ? undefined : 'overflow: hidden;'
     		},
-    		/*$$restProps*/ ctx[8],
-    		{ class: /*classes*/ ctx[7] }
+    		{ class: /*classes*/ ctx[7] },
+    		/*$$restProps*/ ctx[8]
     	];
 
     	let div_data = {};
@@ -22703,8 +22703,8 @@ var app = (function () {
 
     			if (!mounted) {
     				dispose = [
-    					listen_dev(div, "introstart", /*introstart_handler*/ ctx[16], false, false, false),
-    					listen_dev(div, "introend", /*introend_handler*/ ctx[17], false, false, false),
+    					listen_dev(div, "introstart", /*introstart_handler*/ ctx[17], false, false, false),
+    					listen_dev(div, "introend", /*introend_handler*/ ctx[16], false, false, false),
     					listen_dev(div, "outrostart", /*outrostart_handler*/ ctx[18], false, false, false),
     					listen_dev(div, "outroend", /*outroend_handler*/ ctx[19], false, false, false),
     					listen_dev(
@@ -22772,8 +22772,8 @@ var app = (function () {
 
     			set_attributes(div, div_data = get_spread_update(div_levels, [
     				(!current || dirty & /*navbar*/ 2 && div_style_value !== (div_style_value = /*navbar*/ ctx[1] ? undefined : 'overflow: hidden;')) && { style: div_style_value },
-    				dirty & /*$$restProps*/ 256 && /*$$restProps*/ ctx[8],
-    				(!current || dirty & /*classes*/ 128) && { class: /*classes*/ ctx[7] }
+    				(!current || dirty & /*classes*/ 128) && { class: /*classes*/ ctx[7] },
+    				dirty & /*$$restProps*/ 256 && /*$$restProps*/ ctx[8]
     			]));
     		},
     		i: function intro(local) {
@@ -22938,11 +22938,11 @@ var app = (function () {
     		dispatch('update', isOpen);
     	}
 
-    	function introstart_handler(event) {
+    	function introend_handler(event) {
     		bubble.call(this, $$self, event);
     	}
 
-    	function introend_handler(event) {
+    	function introstart_handler(event) {
     		bubble.call(this, $$self, event);
     	}
 
@@ -23053,8 +23053,8 @@ var app = (function () {
     		minWidth,
     		$$scope,
     		slots,
-    		introstart_handler,
     		introend_handler,
+    		introstart_handler,
     		outrostart_handler,
     		outroend_handler,
     		onwindowresize

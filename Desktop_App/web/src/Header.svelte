@@ -10,7 +10,6 @@
     get(child(dbRef, `schedule`))
       .then((snapshot) => {
         if (snapshot.exists()) {
-          console.log(snapshot.val());
           let snapshotVal = snapshot.val();
           for (let index = 0; index < snapshotVal.length; index++) {
             let course = snapshotVal[index];
@@ -51,6 +50,7 @@
                       }, 10000);
                     }
                   } else {
+                    console.log("snapshot doesnt exist");
                   }
                 }
                 return childFunc;
