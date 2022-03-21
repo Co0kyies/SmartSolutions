@@ -140,14 +140,14 @@
         let month = monthMap[monthIndex];
         console.log(monthIndex, month);
         let dbRef = ref(getDatabase());
-        get(child(dbRef, `OrderKeys/${month}`))
+        get(child(dbRef, `orderKeys/${month}`))
           .then((snapshot) => {
             if (snapshot.exists()) {
               let arrayOfKeys = snapshot.val();
               arrayOfKeys.push(orderId);
-              writeToDatabase(`OrderKeys/${month}`, arrayOfKeys);
+              writeToDatabase(`orderKeys/${month}`, arrayOfKeys);
             } else {
-              writeToDatabase(`OrderKeys/${month}`, [orderId]);
+              writeToDatabase(`orderKeys/${month}`, [orderId]);
             }
           })
           .catch((error) => {
@@ -687,7 +687,7 @@
     writeToDatabase("items", null);
     writeToDatabase("routes", null);
     writeToDatabase("itemKeys", null);
-    writeToDatabase("OrderKeys", null);
+    writeToDatabase("orderKeys", null);
   }
 </script>
 
