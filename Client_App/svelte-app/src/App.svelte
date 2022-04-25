@@ -64,8 +64,8 @@
 <Route>
   <Route path="/">
     <Header on:userSignOut={userSignOut} />
-    <Catalog />
-    <!-- <ShoppingCart /> -->
+    <!-- <Catalog /> -->
+    <Tweak />
     <Footer />
   </Route>
   <Route path="tweak">

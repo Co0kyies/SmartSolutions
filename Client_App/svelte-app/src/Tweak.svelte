@@ -19,6 +19,7 @@
   import SelectDecorsMenu from "./Tweak/SelectDecorsMenu.svelte";
   import ApplyDecorsMenu from "./Tweak/ApplyDecorsMenu.svelte";
   import CompleteOrder from "./Tweak/CompleteOrder.svelte";
+  import ZdogModel from "./Tweak/ZdogModel.svelte";
   import { onMount, onDestroy } from "svelte";
 
   let options = $tweakMenuOptions;
@@ -54,8 +55,7 @@
 <main>
   <div id="pic">
     <img src="./img/ED_{$tweak}doors.jpg" alt="" />
-    <!-- <span>Wardrobes_{$tweakMainDecor}_{$tweakFirstDoor}_{$tweakSecondDoor}</span
-    > -->
+    <ZdogModel />
   </div>
   <div id="config">
     <Nav />
@@ -95,10 +95,12 @@
     width: 100%;
   }
   main #pic {
+    position: relative;
     width: 44%;
     height: 100%;
   }
   main #pic img {
+    position: relative;
     width: 100%;
     height: 100%;
   }
