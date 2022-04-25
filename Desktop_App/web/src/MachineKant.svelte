@@ -8,13 +8,15 @@
   let ongoingAnimation = false;
   function startAnimation(event) {
     let barcode = event.detail.newValue;
+    eel.change_progress_db_value(barcode, "Кантиране");
     eel.find_barcode(barcode)((barcodeObj) => {
       if (!ongoingAnimation) {
         ongoingAnimation = true;
         function fillDecorInfoDiv() {
           console.log(barcodeObj);
-          decorInfoDiv.innerHTML += `<span style="color: white;" class="d-block ">  [ Height: ${barcodeObj["Heigh"]}см ]</span>`;
-          decorInfoDiv.innerHTML += `<span style="color: white;" class="d-block ">  [ Widht: ${barcodeObj["Widht"]}см ]</span>`;
+          decorInfoDiv.innerHTML = "";
+          decorInfoDiv.innerHTML += `<span style="color: white;" class="d-block ">  [ Height: ${barcodeObj["Height"]}см ]</span>`;
+          decorInfoDiv.innerHTML += `<span style="color: white;" class="d-block ">  [ Widht: ${barcodeObj["Width"]}см ]</span>`;
         }
         fillDecorInfoDiv();
 

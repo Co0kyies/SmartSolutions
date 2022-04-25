@@ -1,10 +1,15 @@
 <script>
   import { element } from "svelte/internal";
+  import { onMount } from "svelte";
 
   import Header from "./Header.svelte";
   import Nav from "./Nav.svelte";
+  import SmartStorageListener from "./SmartStorageListener.svelte";
+
   import CuttingMachine from "./CuttingMachine.svelte";
   import MachineKant from "./MachineKant.svelte";
+  import MachineHoles from "./MachineHoles.svelte";
+  import SmartStorageMenu from "./SmartStorageMenu.svelte";
   // import anime from "animejs/lib/anime.es.js";
 
   let loading;
@@ -34,12 +39,14 @@
       optionMenus[3].style.zIndex = "1000";
     }
   }
-  // eel.expose(my_javascript_function);
-  // function my_javascript_function() {
-  //   test = "Test Completed";
-  //   console.log("Hello World");
-  // }
+  eel.expose(my_javascript_function);
+  function my_javascript_function() {
+    test = "Test Completed";
+    console.log("Hello World");
+  }
 </script>
+
+<SmartStorageListener />
 
 <Header
   on:buttonPressed={() => {
@@ -52,11 +59,12 @@
     console.log("Loading Completed");
   }}
 />
+
 <Nav on:optionChange={onSelectionOptionChange} />
 
 <main>
   {#if loading}
-    <div class="loading-screen">
+    <div class="loading-screen" style="height: 20%;">
       <span>Зареждане..</span>
     </div>
   {/if}
@@ -64,8 +72,8 @@
     <div bind:this={machinesMenu} id="machines-menu">
       <div><CuttingMachine /></div>
       <div><MachineKant /></div>
-      <div style="background-color: red; " />
-      <div style="background-color: yellow;" />
+      <div><MachineHoles /></div>
+      <div><SmartStorageMenu /></div>
     </div>
   {/if}
 </main>

@@ -57,12 +57,13 @@ def make_barcodes():
                                 barcode += "0"
                             barcode += barcode_str
                             newDict = {
-                                "Heigh": material["y"],
-                                "Widht": material["x"],
+                                "Height": material["y"],
+                                "Width": material["x"],
                                 "Decor": material["decor"],
                                 "Course": destination,
                                 "OrderId": order_id,
                                 "ItemModel": model,
+                                "Holes": material["holes"]
                             }
                             barcodes["allBarcodes"].append(barcode)
                             barcodes[barcode] = newDict
@@ -86,8 +87,8 @@ def prepare_cutting_machine():
                 prepared_data[course][decor]
             except:
                 prepared_data[course][decor] = []            
-            widht = barcode_obj["Widht"]
-            height = barcode_obj["Heigh"]
+            widht = barcode_obj["Width"]
+            height = barcode_obj["Height"]
             square_centimeters = int(widht) * int(height)
 
             printing_sets = prepared_data[course][decor]
@@ -148,8 +149,8 @@ def get_printing_set():
         barcodes = [barcode_touple[0] for barcode_touple in cursor.execute("SELECT barcode FROM printing_sets WHERE printing_set_id=:p", {"p":printing_set})]
         for barcode in barcodes:
             os.rename(f"./pdf_files/{barcode}.pdf", f"./pdf_to_print/{barcode}.pdf")
-        # runPDFtoPrinter()
     prepare_PDFs()
+            # runPDFtoPrinter()
     cursor.execute("DELETE FROM printing_sets WHERE printing_set_id=:p", {"p":printing_set})
     connection.commit()
     connection.close()
@@ -171,8 +172,8 @@ def get_PDFs_labelry():
             if key != "allBarcodes":
                 barcode = key
                 barcodeDict = barcodes[key]
-                hight = barcodeDict["Heigh"]
-                widht = barcodeDict["Widht"]
+                hight = barcodeDict["Height"]
+                widht = barcodeDict["Width"]
                 decor = barcodeDict["Decor"]
                 course_id = barcodeDict["Course"]
                 order_id = barcodeDict["OrderId"]
@@ -191,6 +192,57 @@ def get_PDFs_labelry():
                 else:
                     print('Error: ' + response.text)
 
+
+# Progress Tasks Database
+
+def add_barcodes_to_progress_db():
+    connection = sqlite3.connect("./SQLite_DB/progress.db")
+    cursor = connection.cursor()
+    cursor.execute("CREATE TABLE progress_track(barcode text Primary Key, OrderId text, Разкрой integar, Кантиране integar, Дупчене integar)")
+    connection.commit()
+    with open("./JSON_DB/barcodes.json", "r") as read_file:
+        barcodes_JSON = json.load(read_file)
+        for barcode in barcodes_JSON:
+            if barcode != "allBarcodes":
+                cursor.executemany("INSERT INTO progress_track VALUES (?,?,?,?,?)", [(str(barcode), barcodes_JSON[barcode]["OrderId"], 0, 0, 0)])
+    connection.commit()
+    connection.close()
+
+@eel.expose
+def change_progress_db_value(barcode, machine):
+    connection = sqlite3.connect("./SQLite_DB/progress.db")
+    cursor = connection.cursor()
+    cursor.execute(f"UPDATE progress_track SET {machine} = 1 WHERE barcode = '{barcode}'")
+    connection.commit()
+    connection.close()
+
+def calc_percentage(x, y):
+    return int(x/y*100)
+@eel.expose
+def calculate_percentage_completion_order():
+    connection = sqlite3.connect("./SQLite_DB/progress.db")
+    cursor = connection.cursor()
+    all_orders = cursor.execute("SELECT DISTINCT OrderId FROM progress_track")
+    orders_dict = {}
+    for order in all_orders:
+        orders_dict[order[0]] = {"unfinished": 0, "finished": 0}
+    rows = cursor.execute("SELECT * FROM progress_track")
+    for row in rows:
+        orderItem = orders_dict[row[1]]
+        for i in range(2, 5):
+            if row[i] == 0:
+                orderItem["unfinished"] = orderItem["unfinished"] + 1
+            else:
+                orderItem["finished"] = orderItem["finished"] + 1
+    order_percentages = {}
+    for orderId in orders_dict:
+        order_percentages[orderId] = calc_percentage(orders_dict[orderId]["finished"], orders_dict[orderId]["unfinished"])
+    return (order_percentages)
+
+# Progress Tasks Database
+
+
+
 def delete_all_JSON():
     def delete_barcodes():
         with open("./JSON_DB/barcodes.json", "w") as write_barcodes:
@@ -204,6 +256,7 @@ def delete_all_JSON():
 def delete_sqlite_db():
     try:
         os.remove("./SQLite_DB/cutting_machine.db")
+        os.remove("./SQLite_DB/progress.db")
     except:
         print("Hi I don't do anything")
 def delete_PDF_files():

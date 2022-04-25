@@ -79,7 +79,7 @@
 </script>
 
 <div>
-  <h1>Smart Solutions</h1>
+  <h1>Smart Solution</h1>
   <button
     bind:this={btn}
     on:click={() => {

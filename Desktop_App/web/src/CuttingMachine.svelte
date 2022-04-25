@@ -1,6 +1,9 @@
 <script>
   import anime from "animejs";
   import { linear } from "svelte/easing";
+  import { app } from "./firebase";
+  import { getDatabase, ref, set, get, child } from "firebase/database";
+
   let decorDiv;
   let stopMachine = false;
   function startMachine() {
@@ -10,6 +13,7 @@
     function assignDecorANDSetsBool(arr) {
       decor = arr[0];
       moreSetsBool = arr[1];
+      writeToSmartStorage(decor);
       animation(decor);
       if (moreSetsBool == 1) {
         if (!stopMachine) {
@@ -29,7 +33,6 @@
       { number: "H1401ST22", desc: "Cascina Pine" },
       { number: "U960ST9", desc: "Onyx Grey" },
     ];
-    console.log(decor);
     if (decor == "H3331") {
       decorDiv.style.backgroundImage = "url('./decors/NNEB_OAK.jpg')";
     }
@@ -83,6 +86,25 @@
         begin: function () {
           decorDiv.querySelector("div:nth-child(4)").style.opacity = 100;
         },
+      });
+  }
+  function writeToSmartStorage(decor) {
+    const db = getDatabase(app);
+    const dbRef = ref(db);
+    console.log(decor);
+    const path = `/smartStorage/${decor}`;
+    get(child(dbRef, path))
+      .then((snapshot) => {
+        if (snapshot.exists()) {
+          const val = snapshot.val();
+          let newVal = val - 1;
+          set(ref(db, path), newVal);
+        } else {
+          console.log("No data available");
+        }
+      })
+      .catch((error) => {
+        console.error(error);
       });
   }
 </script>
