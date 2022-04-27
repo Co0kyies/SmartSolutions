@@ -20,9 +20,11 @@
   import ApplyDecorsMenu from "./Tweak/ApplyDecorsMenu.svelte";
   import CompleteOrder from "./Tweak/CompleteOrder.svelte";
   import ZdogModel from "./Tweak/ZdogModel.svelte";
+  import ZdogToggle from "./Tweak/ZDogToggle.svelte";
   import { onMount, onDestroy } from "svelte";
 
   let options = $tweakMenuOptions;
+  let ZdogToggleVar = true;
 
   let snapshot = {
     tweakSelectedHeight: $tweakSelectedHeight,
@@ -55,7 +57,14 @@
 <main>
   <div id="pic">
     <img src="./img/ED_{$tweak}doors.jpg" alt="" />
-    <ZdogModel />
+    <ZdogToggle
+      on:click={() => {
+        ZdogToggleVar = !ZdogToggleVar;
+      }}
+    />
+    {#if ZdogToggleVar}
+      <ZdogModel />
+    {/if}
   </div>
   <div id="config">
     <Nav />

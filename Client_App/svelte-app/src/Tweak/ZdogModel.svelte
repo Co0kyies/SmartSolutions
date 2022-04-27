@@ -1,6 +1,15 @@
 <script>
   import { onMount, onDestroy } from "svelte";
-  import { tweakMainDecor } from "../store";
+  import {
+    tweak,
+    tweakSelectedWidth,
+    tweakSelectedDepth,
+    tweakSelectedHeight,
+    tweakMainDecor,
+    tweakFirstDoor,
+    tweakSecondDoor,
+    tweakThirdDoor,
+  } from "../store";
 
   let svg;
   let render;
@@ -10,7 +19,7 @@
   let unsubscribeFunctionsArray = [];
   // rendering sizes
   onMount(() => {
-    const zoom = 7;
+    const zoom = 16;
     const sceneWidth = 16;
     const sceneHeight = 16;
     let viewWidth = sceneWidth * zoom;
@@ -32,39 +41,49 @@
     // ----- model ----- //
 
     // add shapes to scene
-    testShape = new Zdog.Shape({
+
+    let decorColorsMap = {
+      H3331: "#aa6a10",
+      H1401: "#d8d8d8",
+      U960ST9: "#696969",
+    };
+
+    let corpus = new Zdog.Box({
       addTo: scene,
-      path: [
-        { x: 8, y: -8 },
-        { x: 8, y: 0 },
-        { x: -8, y: 8 },
-      ],
-      translate: { z: 10 },
-      color: "#00",
-      stroke: 3,
-      fill: true,
+      width: $tweakSelectedWidth,
+      height: $tweakSelectedHeight,
+      depth: $tweakSelectedDepth,
+      stroke: false,
+      color: decorColorsMap[$tweakMainDecor],
     });
 
-    new Zdog.Shape({
-      addTo: scene,
-      path: [
-        { x: 0, y: -8 },
-        { x: 8, y: 8 },
-        { x: -8, y: 8 },
-      ],
-      translate: { z: 10 },
-      color: "#E62",
-      stroke: 3,
-      fill: true,
-    });
+    //Creating the handles functions
+    function createRightHandle(door) {
+      console.log(door);
+      new Zdog.Shape({
+        addTo: door,
+        // no path set, default to single point
+        stroke: 4,
+        color: "#000",
+        translate: { x: door.translate.x / 2, z: 1 },
+      });
+    }
 
-    new Zdog.Ellipse({
-      addTo: scene,
-      diameter: 20,
-      translate: { z: -10 },
-      stroke: 5,
-      color: "#636",
-    });
+    let firstDoor;
+    let secondDoor;
+    let thirdDoor;
+
+    if ($tweak == 1) {
+      firstDoor = new Zdog.Box({
+        addTo: scene,
+        width: $tweakSelectedWidth - 8,
+        height: $tweakSelectedHeight - 5,
+        depth: 1.8,
+        color: decorColorsMap[$tweakFirstDoor],
+        translate: { z: $tweakSelectedDepth / 2 + 5 },
+      });
+      createRightHandle(firstDoor);
+    }
 
     // ----- animate ----- //
 
@@ -109,17 +128,23 @@
     });
 
     // Subscribing the store values
-    let decorColorsMap = {
-      H3331: "#d8b15e",
-      H1401: "#d8d8d8",
-      U960ST9: "#696969",
-    };
+    //Sizes
     unsubscribeFunctionsArray.push(
-      tweakMainDecor.subscribe((value) => {
-        console.log("Hello I work");
-        testShape.color = decorColorsMap[value];
-      })
+      tweakSelectedHeight.subscribe((value) => {})
     );
+    unsubscribeFunctionsArray.push(tweakSelectedWidth.subscribe((value) => {}));
+    unsubscribeFunctionsArray.push(tweakThirdDoor.subscribe((value) => {}));
+
+    //Colors
+
+    unsubscribeFunctionsArray.push(tweakMainDecor.subscribe((value) => {}));
+    unsubscribeFunctionsArray.push(tweakFirstDoor.subscribe((value) => {}));
+    if ($tweak > 1) {
+      unsubscribeFunctionsArray.push(tweakSecondDoor.subscribe((value) => {}));
+    }
+    if ($tweak > 2) {
+      unsubscribeFunctionsArray.push(tweakThirdDoor.subscribe((value) => {}));
+    }
   });
   onDestroy(() => {
     unsubscribeFunctionsArray.forEach((fn) => {
@@ -150,7 +175,7 @@
     width: 100%;
     height: 100%;
     background-color: rgb(197, 197, 197);
-    z-index: 10000000000;
+    z-index: 2;
   }
   div {
     position: absolute;
@@ -158,6 +183,6 @@
     left: 0;
     width: 100%;
     height: 100%;
-    color: #696969;
+    color: #aa6a10;
   }
 </style>
