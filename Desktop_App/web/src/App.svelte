@@ -6,6 +6,8 @@
   import Nav from "./Nav.svelte";
   import SmartStorageListener from "./SmartStorageListener.svelte";
 
+  import ArduinoListener from "./ArduinoListener.svelte";
+  import Info from "./Info.svelte";
   import CuttingMachine from "./CuttingMachine.svelte";
   import MachineKant from "./MachineKant.svelte";
   import MachineHoles from "./MachineHoles.svelte";
@@ -69,6 +71,8 @@
     </div>
   {/if}
   {#if loadingCompleted}
+    <ArduinoListener />
+    <Info />
     <div bind:this={machinesMenu} id="machines-menu">
       <div><CuttingMachine /></div>
       <div><MachineKant /></div>
@@ -86,6 +90,7 @@
     --body-background: rgb(75, 75, 75);
   }
   main {
+    position: relative;
     display: flex;
     align-items: center;
     justify-content: center;

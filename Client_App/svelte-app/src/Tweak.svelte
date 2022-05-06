@@ -20,7 +20,7 @@
   import ApplyDecorsMenu from "./Tweak/ApplyDecorsMenu.svelte";
   import CompleteOrder from "./Tweak/CompleteOrder.svelte";
   import ZdogModel from "./Tweak/ZdogModel.svelte";
-  import ZdogToggle from "./Tweak/ZDogToggle.svelte";
+  import ZdogToggle from "./Tweak/ZdogToggle.svelte";
   import { onMount, onDestroy } from "svelte";
 
   let options = $tweakMenuOptions;

@@ -1,5 +1,6 @@
 <script>
   import { onMount, onDestroy } from "svelte";
+  import { add_flush_callback, detach_after_dev } from "svelte/internal";
   import {
     tweak,
     tweakSelectedWidth,
@@ -12,11 +13,16 @@
   } from "../store";
 
   let svg;
-  let render;
-  let testShape;
-  let colorPick;
-
   let unsubscribeFunctionsArray = [];
+
+  function empty(element) {
+    console.log(element);
+    debugger;
+    while (element.firstChild) {
+      element.removeChild(element.firstChild);
+    }
+  }
+
   // rendering sizes
   onMount(() => {
     const zoom = 16;
@@ -38,112 +44,263 @@
     // create an scene Anchor to hold all items
     let scene = new Zdog.Anchor();
 
-    // ----- model ----- //
-
-    // add shapes to scene
-
+    // Models Specific Sizes //
+    let doorsDepth = 1.8;
+    let doorsMargin = 4;
     let decorColorsMap = {
-      H3331: "#aa6a10",
+      H3331: "#998466",
       H1401: "#d8d8d8",
       U960ST9: "#696969",
     };
 
-    let corpus = new Zdog.Box({
+    // ----- utilities ----- //
+
+    //Calculate the widht of the doors
+    function doorsWidth() {
+      let numDoors = $tweak;
+      let answer =
+        ($tweakSelectedWidth - doorsMargin * (2 - 1 + numDoors)) / numDoors;
+      console.log(answer);
+      return answer;
+    }
+    function doorsHeight() {
+      return $tweakSelectedHeight - 5;
+    }
+    function doorTranslateX(doorNo) {
+      let numDoors = $tweak;
+      let remainingSideSpace = ($tweakSelectedWidth - doorsWidth()) / 2;
+      return doorNo == 1
+        ? remainingSideSpace - doorsMargin
+        : doorsMargin - remainingSideSpace;
+    }
+
+    // ----- model ----- //
+
+    // add shapes to scene
+
+    let corpus = {
       addTo: scene,
       width: $tweakSelectedWidth,
       height: $tweakSelectedHeight,
       depth: $tweakSelectedDepth,
       stroke: false,
-      color: decorColorsMap[$tweakMainDecor],
-    });
-
-    //Creating the handles functions
-    function createRightHandle(door) {
-      console.log(door);
-      new Zdog.Shape({
-        addTo: door,
-        // no path set, default to single point
-        stroke: 4,
-        color: "#000",
-        translate: { x: door.translate.x / 2, z: 1 },
-      });
-    }
+      rotate: { x: -0.17, y: -0.2 },
+      // color: decorColorsMap[$tweakMainDecor],
+      frontFace: decorColorsMap[$tweakMainDecor],
+      leftFace: decorColorsMap[$tweakMainDecor],
+      topFace: decorColorsMap[$tweakMainDecor],
+      rareFace: "#000",
+      rightFace: "#000",
+      bottomFace: "#000",
+    };
 
     let firstDoor;
     let secondDoor;
     let thirdDoor;
 
     if ($tweak == 1) {
-      firstDoor = new Zdog.Box({
-        addTo: scene,
-        width: $tweakSelectedWidth - 8,
-        height: $tweakSelectedHeight - 5,
-        depth: 1.8,
+      firstDoor = {
+        addTo: corpus,
+        width: doorsWidth(),
+        height: doorsHeight(),
+        depth: doorsDepth,
         color: decorColorsMap[$tweakFirstDoor],
-        translate: { z: $tweakSelectedDepth / 2 + 5 },
+        translate: { z: $tweakSelectedDepth / 2 + 8 },
+      };
+    }
+    if ($tweak == 2) {
+      firstDoor = {
+        addTo: corpus,
+        width: doorsWidth() - doorsMargin / 2,
+        height: doorsHeight(),
+        depth: doorsDepth,
+        color: decorColorsMap[$tweakFirstDoor],
+        translate: {
+          x: doorTranslateX(1),
+          z: $tweakSelectedDepth / 2 + 8,
+        },
+      };
+      secondDoor = {
+        addTo: corpus,
+        width: doorsWidth() - doorsMargin / 2,
+        height: doorsHeight(),
+        depth: doorsDepth,
+        color: decorColorsMap[$tweakSecondDoor],
+        translate: {
+          x: doorTranslateX(2),
+          z: $tweakSelectedDepth / 2 + 8,
+        },
+      };
+    }
+    if ($tweak == 3) {
+      firstDoor = {
+        addTo: corpus,
+        width: doorsWidth() - doorsMargin / 2,
+        height: doorsHeight(),
+        depth: doorsDepth,
+        color: decorColorsMap[$tweakFirstDoor],
+        translate: {
+          x: doorTranslateX(1),
+          z: $tweakSelectedDepth / 2 + 8,
+        },
+      };
+      secondDoor = {
+        addTo: corpus,
+        width: doorsWidth() - doorsMargin / 2,
+        height: doorsHeight(),
+        depth: doorsDepth,
+        color: decorColorsMap[$tweakSecondDoor],
+        translate: {
+          x: doorTranslateX(2),
+          z: $tweakSelectedDepth / 2 + 8,
+        },
+      };
+      thirdDoor = {
+        addTo: corpus,
+        width: doorsWidth() - doorsMargin / 2,
+        height: doorsHeight(),
+        depth: doorsDepth,
+        color: decorColorsMap[$tweakSecondDoor],
+        translate: {
+          x: 0,
+          z: $tweakSelectedDepth / 2 + 10,
+        },
+      };
+    }
+
+    function createRightHandle(door) {
+      console.log(door);
+      let handle = new Zdog.Shape({
+        addTo: door,
+        // no path set, default to single point
+        stroke: 4,
+        color: "#000",
+        translate: { x: (doorsWidth() * 30) / 100, z: 2 },
       });
-      createRightHandle(firstDoor);
+      return handle;
     }
 
     // ----- animate ----- //
 
-    function animate() {
-      // make changes to model, like rotating scene
-      scene.rotate.y += isSpinning ? 0.03 : 0;
-      scene.updateGraph();
-      render();
-      requestAnimationFrame(animate);
-    }
+    // function animate() {
+    //   // make changes to model, like rotating scene
+    //   scene.rotate.y += isSpinning ? 0.03 : 0;
+    //   scene.updateGraph();
+    //   render();
+    //   requestAnimationFrame(animate);
+    // }
 
-    render = function () {
-      empty(svg);
-      scene.renderGraphSvg(svg);
-    };
+    // let render = function () {
+    //   empty(svg);
+    //   scene.renderGraphSvg(svg);
+    // };
 
-    animate();
+    // animate();
 
     function empty(element) {
       while (element.firstChild) {
         element.removeChild(element.firstChild);
       }
+      scene.children = [];
     }
 
-    // ----- drag ----- //
-
-    let dragStartRX, dragStartRY;
-    let minSize = Math.min(svgWidth, svgHeight);
-
-    // add drag-rotatation with Dragger
-    new Zdog.Dragger({
-      startElement: svg,
-      onDragStart: function () {
-        isSpinning = false;
-        dragStartRX = scene.rotate.x;
-        dragStartRY = scene.rotate.y;
-      },
-      onDragMove: function (pointer, moveX, moveY) {
-        scene.rotate.x = dragStartRX - ((moveY * 0.1) / minSize) * TAU;
-        scene.rotate.y = dragStartRY - ((moveX * 0.1) / minSize) * TAU;
-      },
-    });
-
-    // Subscribing the store values
-    //Sizes
-    unsubscribeFunctionsArray.push(
-      tweakSelectedHeight.subscribe((value) => {})
-    );
-    unsubscribeFunctionsArray.push(tweakSelectedWidth.subscribe((value) => {}));
-    unsubscribeFunctionsArray.push(tweakThirdDoor.subscribe((value) => {}));
-
-    //Colors
-
-    unsubscribeFunctionsArray.push(tweakMainDecor.subscribe((value) => {}));
-    unsubscribeFunctionsArray.push(tweakFirstDoor.subscribe((value) => {}));
-    if ($tweak > 1) {
-      unsubscribeFunctionsArray.push(tweakSecondDoor.subscribe((value) => {}));
+    function buildModel() {
+      let corpusModel = new Zdog.Box(corpus);
+      firstDoor.addTo = corpusModel;
+      new Zdog.Box(firstDoor);
+      try {
+        secondDoor.addTo = corpusModel;
+        new Zdog.Box(secondDoor);
+      } catch {
+        console.log("No Second Door");
+      }
+      try {
+        thirdDoor.addTo = corpusModel;
+        new Zdog.Box(thirdDoor);
+      } catch {}
     }
-    if ($tweak > 2) {
-      unsubscribeFunctionsArray.push(tweakThirdDoor.subscribe((value) => {}));
+
+    function render() {
+      empty(svg);
+      buildModel();
+      scene.updateGraph();
+      scene.renderGraphSvg(svg);
+      console.log(svg);
+    }
+
+    // ----- On-Change Events ----- //
+    {
+      //Sizes
+      unsubscribeFunctionsArray.push(
+        tweakSelectedHeight.subscribe((value) => {
+          corpus.height = value;
+          firstDoor.height = doorsHeight();
+          if ($tweak > 1) {
+            secondDoor.height = doorsHeight();
+          }
+          if ($tweak > 2) {
+            thirdDoor.height = doorsHeight();
+          }
+          render();
+        })
+      );
+      unsubscribeFunctionsArray.push(
+        tweakSelectedWidth.subscribe((value) => {
+          corpus.width = value;
+          firstDoor.width = doorsWidth();
+          if ($tweak > 1) {
+            //If 2 or 3 doors
+            secondDoor.width = doorsWidth();
+            firstDoor.translate.x = doorTranslateX(1);
+            secondDoor.translate.x = doorTranslateX(2);
+          }
+          if ($tweak > 2) {
+            //If 3 doors
+            thirdDoor.width = doorsWidth();
+          }
+          render();
+        })
+      );
+      unsubscribeFunctionsArray.push(
+        tweakSelectedDepth.subscribe((value) => {
+          corpus.depth = value;
+          render();
+        })
+      );
+    }
+
+    {
+      //Colors
+      unsubscribeFunctionsArray.push(
+        tweakMainDecor.subscribe((value) => {
+          corpus.frontFace = decorColorsMap[value];
+          corpus.leftFace = decorColorsMap[value];
+          corpus.topFace = decorColorsMap[value];
+          render();
+        })
+      );
+      unsubscribeFunctionsArray.push(
+        tweakFirstDoor.subscribe((value) => {
+          firstDoor.color = decorColorsMap[value];
+          render();
+        })
+      );
+      if ($tweak > 1) {
+        unsubscribeFunctionsArray.push(
+          tweakSecondDoor.subscribe((value) => {
+            secondDoor.color = decorColorsMap[value];
+            render();
+          })
+        );
+      }
+      if ($tweak > 2) {
+        unsubscribeFunctionsArray.push(
+          tweakThirdDoor.subscribe((value) => {
+            thirdDoor.color = decorColorsMap[value];
+            render();
+          })
+        );
+      }
     }
   });
   onDestroy(() => {
@@ -155,20 +312,10 @@
 
 <!-- <canvas bind:this={canvas} /> -->
 <svg bind:this={svg} />
-
-<div>
-  <button
-    class="test-button-color-change-zdog"
-    on:click={() => {
-      console.log($tweakMainDecor);
-    }}>ClickMe</button
-  >
-  <input bind:value={colorPick} />
-</div>
+<div />
 
 <style>
   svg {
-    cursor: move;
     position: absolute;
     top: 0;
     left: 0;
@@ -181,8 +328,8 @@
     position: absolute;
     top: 0;
     left: 0;
-    width: 100%;
-    height: 100%;
-    color: #aa6a10;
+
+    color: #998466;
+    z-index: 1000000;
   }
 </style>

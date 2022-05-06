@@ -29,7 +29,8 @@ def dump_orders(data):
     make_barcodes()
     prepare_cutting_machine()
     create_cutting_machine_sql()
-    get_PDFs_labelry()
+    add_barcodes_to_progress_db()
+    # get_PDFs_labelry()
     return 1
 
 
@@ -141,10 +142,11 @@ def get_printing_set():
     cursor = connection.cursor()
     printing_sets = [printing_set[0] for printing_set in cursor.execute("SELECT DISTINCT printing_set_id from printing_sets;")]
     printing_set = printing_sets[0]
-    decors = cursor.execute("SELECT DISTINCT decor FROM printing_sets WHERE printing_set_id=:p", {"p":printing_set})
-    for decor_touple in decors:
-        for item in decor_touple:
-            decor = item
+    barcodes = cursor.execute("SELECT DISTINCT barcode,decor FROM printing_sets WHERE printing_set_id=:p", {"p":printing_set})
+    for decor_touple in barcodes:
+        barcode = decor_touple[0]
+        change_progress_db_value(barcode, "Разкрой")
+        decor = decor_touple[1]
     def prepare_PDFs():
         barcodes = [barcode_touple[0] for barcode_touple in cursor.execute("SELECT barcode FROM printing_sets WHERE printing_set_id=:p", {"p":printing_set})]
         for barcode in barcodes:
@@ -193,7 +195,7 @@ def get_PDFs_labelry():
                     print('Error: ' + response.text)
 
 
-# Progress Tasks Database
+# Progress Tasks Database -- START
 
 def add_barcodes_to_progress_db():
     connection = sqlite3.connect("./SQLite_DB/progress.db")
@@ -239,7 +241,7 @@ def calculate_percentage_completion_order():
         order_percentages[orderId] = calc_percentage(orders_dict[orderId]["finished"], orders_dict[orderId]["unfinished"])
     return (order_percentages)
 
-# Progress Tasks Database
+# Progress Tasks Database -- END
 
 
 

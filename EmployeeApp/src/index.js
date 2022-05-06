@@ -5,13 +5,9 @@ import { currentlySelected } from "./selectedOption";
 function onScanSuccess(decodedText, decodedResult) {
   // handle the scanned code as you like, for example:
   console.log(`Code matched = ${decodedText}`, decodedResult);
-  let path;
-  if (currentlySelected() == "kant") {
-    path = "/kant";
-  } else {
-    path = "/cut";
-  }
+  let path = currentlySelected();
   const db = getDatabase(app);
+  console.log(path);
   set(ref(db, path), decodedText);
 }
 

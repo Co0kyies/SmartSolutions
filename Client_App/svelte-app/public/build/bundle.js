@@ -207,7 +207,7 @@ var app = (function () {
     function space() {
         return text(' ');
     }
-    function empty() {
+    function empty$1() {
         return text('');
     }
     function listen(node, event, handler, options) {
@@ -409,6 +409,9 @@ var app = (function () {
     }
     function add_render_callback(fn) {
         render_callbacks.push(fn);
+    }
+    function add_flush_callback(fn) {
+        flush_callbacks.push(fn);
     }
     // flush() calls callbacks in this order:
     // 1. All beforeUpdate callbacks, in order: parents before children
@@ -933,6 +936,11 @@ var app = (function () {
             detach_dev(after.previousSibling);
         }
     }
+    function detach_after_dev(before) {
+        while (before.nextSibling) {
+            detach_dev(before.nextSibling);
+        }
+    }
     function listen_dev(node, event, handler, options, has_prevent_default, has_stop_propagation) {
         const modifiers = options === true ? ['capture'] : options ? Array.from(Object.keys(options)) : [];
         if (has_prevent_default)
@@ -1046,7 +1054,7 @@ var app = (function () {
 
     function p(e,a=!1){return e=e.slice(e.startsWith("/#")?2:0,e.endsWith("/*")?-2:void 0),e.startsWith("/")||(e="/"+e),e==="/"&&(e=""),a&&!e.endsWith("/")&&(e+="/"),e}function d(e,a){e=p(e,!0),a=p(a,!0);let r=[],n={},t=!0,c=e.split("/").map(s=>s.startsWith(":")?(r.push(s.slice(1)),"([^\\/]+)"):s).join("\\/"),o=a.match(new RegExp(`^${c}$`));return o||(t=!1,o=a.match(new RegExp(`^${c}`))),o?(r.forEach((s,h)=>n[s]=o[h+1]),{exact:t,params:n,part:o[0].slice(0,-1)}):null}function x(e,a,r){if(r==="")return e;if(r[0]==="/")return r;let n=o=>o.split("/").filter(s=>s!==""),t=n(e),c=a?n(a):[];return "/"+c.map((o,s)=>t[s]).join("/")+"/"+r}function m(e,a,r,n){let t=[a,"data-"+a].reduce((c,o)=>{let s=e.getAttribute(o);return r&&e.removeAttribute(o),s===null?c:s},!1);return !n&&t===""?!0:t||n||!1}function S(e){let a=e.split("&").map(r=>r.split("=")).reduce((r,n)=>{let t=n[0];if(!t)return r;let c=n.length>1?n[n.length-1]:!0;return typeof c=="string"&&c.includes(",")&&(c=c.split(",")),r[t]===void 0?r[t]=[c]:r[t].push(c),r},{});return Object.entries(a).reduce((r,n)=>(r[n[0]]=n[1].length>1?n[1]:n[1][0],r),{})}function v(e){return Object.entries(e).map(([a,r])=>r?r===!0?a:`${a}=${Array.isArray(r)?r.join(","):r}`:null).filter(a=>a).join("&")}function w(e,a){return e?a+e:""}function k(e){throw new Error("[Tinro] "+e)}var i={HISTORY:1,HASH:2,MEMORY:3,OFF:4,run(e,a,r,n){return e===this.HISTORY?a&&a():e===this.HASH?r&&r():n&&n()},getDefault(){return !window||window.location.pathname==="srcdoc"?this.MEMORY:this.HISTORY}};var R,M,$,b="",l=A();function A(){let e=i.getDefault(),a,r=o=>window.onhashchange=window.onpopstate=R=null,n=o=>a&&a(y(e)),t=o=>{o&&(e=o),r(),e!==i.OFF&&i.run(e,s=>window.onpopstate=n,s=>window.onhashchange=n)&&n();},c=o=>{let s=Object.assign(y(e),o);return s.path+w(v(s.query),"?")+w(s.hash,"#")};return {mode:t,get:o=>y(e),go(o,s){E(e,o,s),n();},start(o){a=o,t();},stop(){a=null,t(i.OFF);},set(o){this.go(c(o),!o.path);},methods(){return _(this)},base:o=>b=o}}function E(e,a,r){!r&&(M=$);let n=t=>history[`${r?"replace":"push"}State`]({},"",t);i.run(e,t=>n(b+a),t=>n(`#${a}`),t=>R=a);}function y(e){let a=window.location,r=i.run(e,t=>(b?a.pathname.replace(b,""):a.pathname)+a.search+a.hash,t=>String(a.hash.slice(1)||"/"),t=>R||"/"),n=r.match(/^([^?#]+)(?:\?([^#]+))?(?:\#(.+))?$/);return $=r,{url:r,from:M,path:n[1]||"",query:S(n[2]||""),hash:n[3]||""}}function _(e){let a=()=>e.get().query,r=o=>e.set({query:o}),n=o=>r(o(a())),t=()=>e.get().hash,c=o=>e.set({hash:o});return {hash:{get:t,set:c,clear:()=>c("")},query:{replace:r,clear:()=>r(""),get(o){return o?a()[o]:a()},set(o,s){n(h=>(h[o]=s,h));},delete(o){n(s=>(s[o]&&delete s[o],s));}}}}var f=T();function T(){let{subscribe:e}=writable(l.get(),a=>{l.start(a);let r=P(l.go);return ()=>{l.stop(),r();}});return {subscribe:e,goto:l.go,params:Q,meta:O,useHashNavigation:a=>l.mode(a?i.HASH:i.HISTORY),mode:{hash:()=>l.mode(i.HASH),history:()=>l.mode(i.HISTORY),memory:()=>l.mode(i.MEMORY)},base:l.base,location:l.methods()}}function P(e){let a=r=>{let n=r.target.closest("a[href]"),t=n&&m(n,"target",!1,"_self"),c=n&&m(n,"tinro-ignore"),o=r.ctrlKey||r.metaKey||r.altKey||r.shiftKey;if(t=="_self"&&!c&&!o&&n){let s=n.getAttribute("href").replace(/^\/#/,"");/^\/\/|^#|^[a-zA-Z]+:/.test(s)||(r.preventDefault(),e(s.startsWith("/")?s:n.href.replace(window.location.origin,"")));}};return addEventListener("click",a),()=>removeEventListener("click",a)}function Q(){return getContext("tinro").meta.params}var g="tinro",K=j({pattern:"",matched:!0});function q(e){let a=getContext(g)||K;(a.exact||a.fallback)&&k(`${e.fallback?"<Route fallback>":`<Route path="${e.path}">`}  can't be inside ${a.fallback?"<Route fallback>":`<Route path="${a.path||"/"}"> with exact path`}`);let r=e.fallback?"fallbacks":"childs",n=writable({}),t=j({fallback:e.fallback,parent:a,update(c){t.exact=!c.path.endsWith("/*"),t.pattern=p(`${t.parent.pattern||""}${c.path}`),t.redirect=c.redirect,t.firstmatch=c.firstmatch,t.breadcrumb=c.breadcrumb,t.match();},register:()=>(t.parent[r].add(t),async()=>{t.parent[r].delete(t),t.parent.activeChilds.delete(t),t.router.un&&t.router.un(),t.parent.match();}),show:()=>{e.onShow(),!t.fallback&&t.parent.activeChilds.add(t);},hide:()=>{e.onHide(),t.parent.activeChilds.delete(t);},match:async()=>{t.matched=!1;let{path:c,url:o,from:s,query:h}=t.router.location,u=d(t.pattern,c);if(!t.fallback&&u&&t.redirect&&(!t.exact||t.exact&&u.exact)){let L=x(c,t.parent.pattern,t.redirect);return f.goto(L,!0)}t.meta=u&&{from:s,url:o,query:h,match:u.part,pattern:t.pattern,breadcrumbs:t.parent.meta&&t.parent.meta.breadcrumbs.slice()||[],params:u.params,subscribe:n.subscribe},t.breadcrumb&&t.meta&&t.meta.breadcrumbs.push({name:t.breadcrumb,path:u.part}),n.set(t.meta),u&&!t.fallback&&(!t.exact||t.exact&&u.exact)&&(!t.parent.firstmatch||!t.parent.matched)?(e.onMeta(t.meta),t.parent.matched=!0,t.show()):t.hide(),u&&t.showFallbacks();}});return setContext(g,t),onMount(()=>t.register()),t}function O(){return hasContext(g)?getContext(g).meta:k("meta() function must be run inside any `<Route>` child component only")}function j(e){let a={router:{},exact:!1,pattern:null,meta:null,parent:null,fallback:!1,redirect:!1,firstmatch:!1,breadcrumb:null,matched:!1,childs:new Set,activeChilds:new Set,fallbacks:new Set,async showFallbacks(){if(!this.fallback&&(await tick(),this.childs.size>0&&this.activeChilds.size==0||this.childs.size==0&&this.fallbacks.size>0)){let r=this;for(;r.fallbacks.size==0;)if(r=r.parent,!r)return;r&&r.fallbacks.forEach(n=>{if(n.redirect){let t=x("/",n.parent.pattern,n.redirect);f.goto(t,!0);}else n.show();});}},start(){this.router.un||(this.router.un=f.subscribe(r=>{this.router.location=r,this.pattern!==null&&this.match();}));},match(){this.showFallbacks();}};return Object.assign(a,e),a.start(),a}
 
-    /* node_modules\tinro\cmp\Route.svelte generated by Svelte v3.46.2 */
+    /* node_modules/tinro/cmp/Route.svelte generated by Svelte v3.46.2 */
 
     const get_default_slot_changes = dirty => ({
     	params: dirty & /*params*/ 2,
@@ -1124,7 +1132,7 @@ var app = (function () {
     	const block = {
     		c: function create() {
     			if (if_block) if_block.c();
-    			if_block_anchor = empty();
+    			if_block_anchor = empty$1();
     		},
     		l: function claim(nodes) {
     			throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
@@ -22390,7 +22398,7 @@ var app = (function () {
     let user = writable();
     let userId = writable();
     let authUser = writable(0);
-    let tweak = writable(1);
+    let tweak = writable(2);
     let pricePerCubic = writable(0.00068);
     let tweakMenuOptions = writable([
       "Размери",
@@ -22659,8 +22667,8 @@ var app = (function () {
       };
     };
 
-    /* node_modules\sveltestrap\src\Collapse.svelte generated by Svelte v3.46.2 */
-    const file$K = "node_modules\\sveltestrap\\src\\Collapse.svelte";
+    /* node_modules/sveltestrap/src/Collapse.svelte generated by Svelte v3.46.2 */
+    const file$K = "node_modules/sveltestrap/src/Collapse.svelte";
 
     // (57:0) {#if isOpen}
     function create_if_block$p(ctx) {
@@ -22832,7 +22840,7 @@ var app = (function () {
     	const block = {
     		c: function create() {
     			if (if_block) if_block.c();
-    			if_block_anchor = empty();
+    			if_block_anchor = empty$1();
     		},
     		l: function claim(nodes) {
     			throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
@@ -23161,8 +23169,8 @@ var app = (function () {
     	}
     }
 
-    /* node_modules\sveltestrap\src\Button.svelte generated by Svelte v3.46.2 */
-    const file$J = "node_modules\\sveltestrap\\src\\Button.svelte";
+    /* node_modules/sveltestrap/src/Button.svelte generated by Svelte v3.46.2 */
+    const file$J = "node_modules/sveltestrap/src/Button.svelte";
 
     // (54:0) {:else}
     function create_else_block_1$2(ctx) {
@@ -23503,7 +23511,7 @@ var app = (function () {
     	const block_1 = {
     		c: function create() {
     			if_block.c();
-    			if_block_anchor = empty();
+    			if_block_anchor = empty$1();
     		},
     		m: function mount(target, anchor) {
     			if_blocks[current_block_type_index].m(target, anchor);
@@ -23672,7 +23680,7 @@ var app = (function () {
     	const block_1 = {
     		c: function create() {
     			if_block.c();
-    			if_block_anchor = empty();
+    			if_block_anchor = empty$1();
     		},
     		l: function claim(nodes) {
     			throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
@@ -25876,10 +25884,10 @@ var app = (function () {
 
     const createContext = () => writable({});
 
-    /* node_modules\sveltestrap\src\Dropdown.svelte generated by Svelte v3.46.2 */
+    /* node_modules/sveltestrap/src/Dropdown.svelte generated by Svelte v3.46.2 */
 
     const { Error: Error_1 } = globals;
-    const file$I = "node_modules\\sveltestrap\\src\\Dropdown.svelte";
+    const file$I = "node_modules/sveltestrap/src/Dropdown.svelte";
 
     // (122:0) {:else}
     function create_else_block$l(ctx) {
@@ -26056,7 +26064,7 @@ var app = (function () {
     	const block = {
     		c: function create() {
     			if_block.c();
-    			if_block_anchor = empty();
+    			if_block_anchor = empty$1();
     		},
     		l: function claim(nodes) {
     			throw new Error_1("options.hydrate only works if the component was compiled with the `hydratable: true` option");
@@ -26449,8 +26457,8 @@ var app = (function () {
     	}
     }
 
-    /* node_modules\sveltestrap\src\Card.svelte generated by Svelte v3.46.2 */
-    const file$H = "node_modules\\sveltestrap\\src\\Card.svelte";
+    /* node_modules/sveltestrap/src/Card.svelte generated by Svelte v3.46.2 */
+    const file$H = "node_modules/sveltestrap/src/Card.svelte";
 
     function create_fragment$L(ctx) {
     	let div;
@@ -26691,8 +26699,8 @@ var app = (function () {
     	}
     }
 
-    /* node_modules\sveltestrap\src\CardBody.svelte generated by Svelte v3.46.2 */
-    const file$G = "node_modules\\sveltestrap\\src\\CardBody.svelte";
+    /* node_modules/sveltestrap/src/CardBody.svelte generated by Svelte v3.46.2 */
+    const file$G = "node_modules/sveltestrap/src/CardBody.svelte";
 
     function create_fragment$K(ctx) {
     	let div;
@@ -26829,8 +26837,8 @@ var app = (function () {
     	}
     }
 
-    /* node_modules\sveltestrap\src\CardHeader.svelte generated by Svelte v3.46.2 */
-    const file$F = "node_modules\\sveltestrap\\src\\CardHeader.svelte";
+    /* node_modules/sveltestrap/src/CardHeader.svelte generated by Svelte v3.46.2 */
+    const file$F = "node_modules/sveltestrap/src/CardHeader.svelte";
 
     // (15:0) {:else}
     function create_else_block$k(ctx) {
@@ -27021,7 +27029,7 @@ var app = (function () {
     	const block = {
     		c: function create() {
     			if_block.c();
-    			if_block_anchor = empty();
+    			if_block_anchor = empty$1();
     		},
     		l: function claim(nodes) {
     			throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
@@ -27169,8 +27177,8 @@ var app = (function () {
     	}
     }
 
-    /* node_modules\sveltestrap\src\CardTitle.svelte generated by Svelte v3.46.2 */
-    const file$E = "node_modules\\sveltestrap\\src\\CardTitle.svelte";
+    /* node_modules/sveltestrap/src/CardTitle.svelte generated by Svelte v3.46.2 */
+    const file$E = "node_modules/sveltestrap/src/CardTitle.svelte";
 
     function create_fragment$I(ctx) {
     	let h5;
@@ -27307,8 +27315,8 @@ var app = (function () {
     	}
     }
 
-    /* node_modules\sveltestrap\src\DropdownItem.svelte generated by Svelte v3.46.2 */
-    const file$D = "node_modules\\sveltestrap\\src\\DropdownItem.svelte";
+    /* node_modules/sveltestrap/src/DropdownItem.svelte generated by Svelte v3.46.2 */
+    const file$D = "node_modules/sveltestrap/src/DropdownItem.svelte";
 
     // (49:0) {:else}
     function create_else_block$j(ctx) {
@@ -27694,7 +27702,7 @@ var app = (function () {
     	const block = {
     		c: function create() {
     			if_block.c();
-    			if_block_anchor = empty();
+    			if_block_anchor = empty$1();
     		},
     		l: function claim(nodes) {
     			throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
@@ -27953,8 +27961,8 @@ var app = (function () {
     	}
     }
 
-    /* node_modules\sveltestrap\src\DropdownMenu.svelte generated by Svelte v3.46.2 */
-    const file$C = "node_modules\\sveltestrap\\src\\DropdownMenu.svelte";
+    /* node_modules/sveltestrap/src/DropdownMenu.svelte generated by Svelte v3.46.2 */
+    const file$C = "node_modules/sveltestrap/src/DropdownMenu.svelte";
 
     function create_fragment$G(ctx) {
     	let div;
@@ -28190,8 +28198,8 @@ var app = (function () {
     	}
     }
 
-    /* node_modules\sveltestrap\src\DropdownToggle.svelte generated by Svelte v3.46.2 */
-    const file$B = "node_modules\\sveltestrap\\src\\DropdownToggle.svelte";
+    /* node_modules/sveltestrap/src/DropdownToggle.svelte generated by Svelte v3.46.2 */
+    const file$B = "node_modules/sveltestrap/src/DropdownToggle.svelte";
 
     // (94:0) {:else}
     function create_else_block$i(ctx) {
@@ -28791,7 +28799,7 @@ var app = (function () {
     	const block_1 = {
     		c: function create() {
     			if_block.c();
-    			if_block_anchor = empty();
+    			if_block_anchor = empty$1();
     		},
     		l: function claim(nodes) {
     			throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
@@ -29184,8 +29192,8 @@ var app = (function () {
     	}
     }
 
-    /* node_modules\sveltestrap\src\Icon.svelte generated by Svelte v3.46.2 */
-    const file$A = "node_modules\\sveltestrap\\src\\Icon.svelte";
+    /* node_modules/sveltestrap/src/Icon.svelte generated by Svelte v3.46.2 */
+    const file$A = "node_modules/sveltestrap/src/Icon.svelte";
 
     function create_fragment$E(ctx) {
     	let i;
@@ -29299,9 +29307,9 @@ var app = (function () {
     	}
     }
 
-    /* node_modules\sveltestrap\src\InlineContainer.svelte generated by Svelte v3.46.2 */
+    /* node_modules/sveltestrap/src/InlineContainer.svelte generated by Svelte v3.46.2 */
 
-    const file$z = "node_modules\\sveltestrap\\src\\InlineContainer.svelte";
+    const file$z = "node_modules/sveltestrap/src/InlineContainer.svelte";
 
     function create_fragment$D(ctx) {
     	let div;
@@ -29410,8 +29418,8 @@ var app = (function () {
     	}
     }
 
-    /* node_modules\sveltestrap\src\ModalBackdrop.svelte generated by Svelte v3.46.2 */
-    const file$y = "node_modules\\sveltestrap\\src\\ModalBackdrop.svelte";
+    /* node_modules/sveltestrap/src/ModalBackdrop.svelte generated by Svelte v3.46.2 */
+    const file$y = "node_modules/sveltestrap/src/ModalBackdrop.svelte";
 
     // (20:0) {#if isOpen && loaded}
     function create_if_block$j(ctx) {
@@ -29495,7 +29503,7 @@ var app = (function () {
     	const block = {
     		c: function create() {
     			if (if_block) if_block.c();
-    			if_block_anchor = empty();
+    			if_block_anchor = empty$1();
     		},
     		l: function claim(nodes) {
     			throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
@@ -29653,8 +29661,8 @@ var app = (function () {
     	}
     }
 
-    /* node_modules\sveltestrap\src\ModalBody.svelte generated by Svelte v3.46.2 */
-    const file$x = "node_modules\\sveltestrap\\src\\ModalBody.svelte";
+    /* node_modules/sveltestrap/src/ModalBody.svelte generated by Svelte v3.46.2 */
+    const file$x = "node_modules/sveltestrap/src/ModalBody.svelte";
 
     function create_fragment$B(ctx) {
     	let div;
@@ -29791,8 +29799,8 @@ var app = (function () {
     	}
     }
 
-    /* node_modules\sveltestrap\src\ModalHeader.svelte generated by Svelte v3.46.2 */
-    const file$w = "node_modules\\sveltestrap\\src\\ModalHeader.svelte";
+    /* node_modules/sveltestrap/src/ModalHeader.svelte generated by Svelte v3.46.2 */
+    const file$w = "node_modules/sveltestrap/src/ModalHeader.svelte";
     const get_close_slot_changes = dirty => ({});
     const get_close_slot_context = ctx => ({});
 
@@ -29951,7 +29959,7 @@ var app = (function () {
     	const block = {
     		c: function create() {
     			if (if_block) if_block.c();
-    			if_block_anchor = empty();
+    			if_block_anchor = empty$1();
     		},
     		m: function mount(target, anchor) {
     			if (if_block) if_block.m(target, anchor);
@@ -30253,8 +30261,8 @@ var app = (function () {
     	}
     }
 
-    /* node_modules\sveltestrap\src\Portal.svelte generated by Svelte v3.46.2 */
-    const file$v = "node_modules\\sveltestrap\\src\\Portal.svelte";
+    /* node_modules/sveltestrap/src/Portal.svelte generated by Svelte v3.46.2 */
+    const file$v = "node_modules/sveltestrap/src/Portal.svelte";
 
     function create_fragment$z(ctx) {
     	let div;
@@ -30394,9 +30402,9 @@ var app = (function () {
     	}
     }
 
-    /* node_modules\sveltestrap\src\Modal.svelte generated by Svelte v3.46.2 */
+    /* node_modules/sveltestrap/src/Modal.svelte generated by Svelte v3.46.2 */
 
-    const file$u = "node_modules\\sveltestrap\\src\\Modal.svelte";
+    const file$u = "node_modules/sveltestrap/src/Modal.svelte";
     const get_external_slot_changes = dirty => ({});
     const get_external_slot_context = ctx => ({});
 
@@ -30424,7 +30432,7 @@ var app = (function () {
     	const block = {
     		c: function create() {
     			if (switch_instance) create_component(switch_instance.$$.fragment);
-    			switch_instance_anchor = empty();
+    			switch_instance_anchor = empty$1();
     		},
     		m: function mount(target, anchor) {
     			if (switch_instance) {
@@ -31074,7 +31082,7 @@ var app = (function () {
     	const block = {
     		c: function create() {
     			if (switch_instance) create_component(switch_instance.$$.fragment);
-    			switch_instance_anchor = empty();
+    			switch_instance_anchor = empty$1();
     		},
     		m: function mount(target, anchor) {
     			if (switch_instance) {
@@ -31205,7 +31213,7 @@ var app = (function () {
     			if (if_block0) if_block0.c();
     			t = space();
     			if (if_block1) if_block1.c();
-    			if_block1_anchor = empty();
+    			if_block1_anchor = empty$1();
     		},
     		l: function claim(nodes) {
     			throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
@@ -31879,8 +31887,8 @@ var app = (function () {
     	}
     }
 
-    /* node_modules\sveltestrap\src\ModalFooter.svelte generated by Svelte v3.46.2 */
-    const file$t = "node_modules\\sveltestrap\\src\\ModalFooter.svelte";
+    /* node_modules/sveltestrap/src/ModalFooter.svelte generated by Svelte v3.46.2 */
+    const file$t = "node_modules/sveltestrap/src/ModalFooter.svelte";
 
     function create_fragment$x(ctx) {
     	let div;
@@ -32017,8 +32025,8 @@ var app = (function () {
     	}
     }
 
-    /* node_modules\sveltestrap\src\NavItem.svelte generated by Svelte v3.46.2 */
-    const file$s = "node_modules\\sveltestrap\\src\\NavItem.svelte";
+    /* node_modules/sveltestrap/src/NavItem.svelte generated by Svelte v3.46.2 */
+    const file$s = "node_modules/sveltestrap/src/NavItem.svelte";
 
     function create_fragment$w(ctx) {
     	let li;
@@ -32166,8 +32174,8 @@ var app = (function () {
     	}
     }
 
-    /* src\Header\Dropdown.svelte generated by Svelte v3.46.2 */
-    const file$r = "src\\Header\\Dropdown.svelte";
+    /* src/Header/Dropdown.svelte generated by Svelte v3.46.2 */
+    const file$r = "src/Header/Dropdown.svelte";
 
     // (25:2) {:else}
     function create_else_block$f(ctx) {
@@ -32241,7 +32249,7 @@ var app = (function () {
     			div = element("div");
     			if_block.c();
     			attr_dev(div, "class", "svelte-cnsyf3");
-    			add_location(div, file$r, 21, 0, 403);
+    			add_location(div, file$r, 21, 0, 382);
     		},
     		l: function claim(nodes) {
     			throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
@@ -32374,8 +32382,8 @@ var app = (function () {
     	}
     }
 
-    /* src\Header\CartButton.svelte generated by Svelte v3.46.2 */
-    const file$q = "src\\Header\\CartButton.svelte";
+    /* src/Header/CartButton.svelte generated by Svelte v3.46.2 */
+    const file$q = "src/Header/CartButton.svelte";
 
     // (14:2) {#if dropdown}
     function create_if_block$f(ctx) {
@@ -32437,7 +32445,7 @@ var app = (function () {
     			t = space();
     			if (if_block) if_block.c();
     			attr_dev(div, "class", "svelte-1tjjfdt");
-    			add_location(div, file$q, 7, 0, 145);
+    			add_location(div, file$q, 7, 0, 138);
     		},
     		l: function claim(nodes) {
     			throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
@@ -32567,10 +32575,10 @@ var app = (function () {
     	}
     }
 
-    /* src\Header.svelte generated by Svelte v3.46.2 */
+    /* src/Header.svelte generated by Svelte v3.46.2 */
 
     const { Object: Object_1$3 } = globals;
-    const file$p = "src\\Header.svelte";
+    const file$p = "src/Header.svelte";
 
     // (39:4) {:else}
     function create_else_block$e(ctx) {
@@ -32594,7 +32602,7 @@ var app = (function () {
     			create_component(button.$$.fragment);
     			attr_dev(a, "href", "/login");
     			attr_dev(a, "class", "svelte-1roxdk8");
-    			add_location(a, file$p, 39, 6, 970);
+    			add_location(a, file$p, 39, 6, 931);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, a, anchor);
@@ -32785,7 +32793,7 @@ var app = (function () {
     		c: function create() {
     			p = element("p");
     			p.textContent = "Излез от профила си";
-    			add_location(p, file$p, 34, 12, 852);
+    			add_location(p, file$p, 34, 12, 818);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, p, anchor);
@@ -32952,7 +32960,7 @@ var app = (function () {
     			t = text(t_value);
     			attr_dev(div, "id", "items-in-cart");
     			attr_dev(div, "class", "svelte-1roxdk8");
-    			add_location(div, file$p, 47, 6, 1352);
+    			add_location(div, file$p, 47, 6, 1305);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, div, anchor);
@@ -32989,7 +32997,7 @@ var app = (function () {
     			t = text(t_value);
     			attr_dev(div, "id", "items-in-cart");
     			attr_dev(div, "class", "svelte-1roxdk8");
-    			add_location(div, file$p, 45, 6, 1217);
+    			add_location(div, file$p, 45, 6, 1172);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, div, anchor);
@@ -33071,21 +33079,21 @@ var app = (function () {
     			t3 = space();
     			if (if_block1) if_block1.c();
     			attr_dev(h1, "class", "svelte-1roxdk8");
-    			add_location(h1, file$p, 24, 37, 526);
+    			add_location(h1, file$p, 24, 37, 502);
     			attr_dev(a0, "href", "/");
     			attr_dev(a0, "class", "font-spartan svelte-1roxdk8");
-    			add_location(a0, file$p, 24, 4, 493);
+    			add_location(a0, file$p, 24, 4, 469);
     			attr_dev(div0, "id", "logo");
     			attr_dev(div0, "class", "svelte-1roxdk8");
-    			add_location(div0, file$p, 23, 2, 472);
+    			add_location(div0, file$p, 23, 2, 449);
     			attr_dev(div1, "class", "login-greetings svelte-1roxdk8");
-    			add_location(div1, file$p, 26, 2, 562);
+    			add_location(div1, file$p, 26, 2, 536);
     			attr_dev(a1, "id", "cart-button");
     			attr_dev(a1, "href", "/cart");
     			attr_dev(a1, "class", "svelte-1roxdk8");
-    			add_location(a1, file$p, 42, 2, 1064);
+    			add_location(a1, file$p, 42, 2, 1022);
     			attr_dev(header, "class", "svelte-1roxdk8");
-    			add_location(header, file$p, 22, 0, 460);
+    			add_location(header, file$p, 22, 0, 438);
     		},
     		l: function claim(nodes) {
     			throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
@@ -33234,8 +33242,8 @@ var app = (function () {
     	}
     }
 
-    /* src\Catalog.svelte generated by Svelte v3.46.2 */
-    const file$o = "src\\Catalog.svelte";
+    /* src/Catalog.svelte generated by Svelte v3.46.2 */
+    const file$o = "src/Catalog.svelte";
 
     function create_fragment$s(ctx) {
     	let main;
@@ -33293,45 +33301,45 @@ var app = (function () {
     			p2 = element("p");
     			p2.textContent = "Гардероб с 3 врати";
     			attr_dev(h1, "class", "svelte-rdqi13");
-    			add_location(h1, file$o, 10, 2, 210);
+    			add_location(h1, file$o, 10, 2, 200);
     			if (!src_url_equal(img0.src, img0_src_value = "./img/ED_1doors.jpg")) attr_dev(img0, "src", img0_src_value);
     			attr_dev(img0, "alt", "");
     			attr_dev(img0, "class", "svelte-rdqi13");
-    			add_location(img0, file$o, 19, 8, 372);
+    			add_location(img0, file$o, 19, 8, 353);
     			attr_dev(p0, "class", "svelte-rdqi13");
-    			add_location(p0, file$o, 20, 8, 422);
+    			add_location(p0, file$o, 20, 8, 402);
     			attr_dev(div0, "class", "card svelte-rdqi13");
-    			add_location(div0, file$o, 18, 6, 344);
+    			add_location(div0, file$o, 18, 6, 326);
     			attr_dev(a0, "href", "tweak");
     			attr_dev(a0, "class", "svelte-rdqi13");
-    			add_location(a0, file$o, 12, 4, 252);
+    			add_location(a0, file$o, 12, 4, 240);
     			if (!src_url_equal(img1.src, img1_src_value = "./img/ED_2doors.jpg")) attr_dev(img1, "src", img1_src_value);
     			attr_dev(img1, "alt", "");
     			attr_dev(img1, "class", "svelte-rdqi13");
-    			add_location(img1, file$o, 30, 8, 597);
+    			add_location(img1, file$o, 30, 8, 567);
     			attr_dev(p1, "class", "svelte-rdqi13");
-    			add_location(p1, file$o, 31, 8, 647);
+    			add_location(p1, file$o, 31, 8, 616);
     			attr_dev(div1, "class", "card svelte-rdqi13");
-    			add_location(div1, file$o, 29, 6, 569);
+    			add_location(div1, file$o, 29, 6, 540);
     			attr_dev(a1, "href", "tweak");
     			attr_dev(a1, "class", "svelte-rdqi13");
-    			add_location(a1, file$o, 23, 4, 477);
+    			add_location(a1, file$o, 23, 4, 454);
     			if (!src_url_equal(img2.src, img2_src_value = "./img/ED_3doors.jpg")) attr_dev(img2, "src", img2_src_value);
     			attr_dev(img2, "alt", "");
     			attr_dev(img2, "class", "svelte-rdqi13");
-    			add_location(img2, file$o, 41, 8, 823);
+    			add_location(img2, file$o, 41, 8, 782);
     			attr_dev(p2, "class", "svelte-rdqi13");
-    			add_location(p2, file$o, 42, 8, 873);
+    			add_location(p2, file$o, 42, 8, 831);
     			attr_dev(div2, "class", "card svelte-rdqi13");
-    			add_location(div2, file$o, 40, 6, 795);
+    			add_location(div2, file$o, 40, 6, 755);
     			attr_dev(a2, "href", "tweak");
     			attr_dev(a2, "class", "svelte-rdqi13");
-    			add_location(a2, file$o, 34, 4, 703);
+    			add_location(a2, file$o, 34, 4, 669);
     			attr_dev(div3, "id", "grid");
     			attr_dev(div3, "class", "svelte-rdqi13");
-    			add_location(div3, file$o, 11, 2, 231);
+    			add_location(div3, file$o, 11, 2, 220);
     			attr_dev(main, "class", "svelte-rdqi13");
-    			add_location(main, file$o, 9, 0, 200);
+    			add_location(main, file$o, 9, 0, 191);
     		},
     		l: function claim(nodes) {
     			throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
@@ -33454,8 +33462,8 @@ var app = (function () {
     	}
     }
 
-    /* src\Tweak\Nav.svelte generated by Svelte v3.46.2 */
-    const file$n = "src\\Tweak\\Nav.svelte";
+    /* src/Tweak/Nav.svelte generated by Svelte v3.46.2 */
+    const file$n = "src/Tweak/Nav.svelte";
 
     function get_each_context$7(ctx, list, i) {
     	const child_ctx = ctx.slice();
@@ -33489,9 +33497,9 @@ var app = (function () {
     			t1 = text(". ");
     			t2 = text(t2_value);
     			t3 = space();
-    			add_location(span, file$n, 22, 8, 512);
+    			add_location(span, file$n, 22, 8, 490);
     			attr_dev(div, "class", "svelte-7xb50z");
-    			add_location(div, file$n, 17, 6, 408);
+    			add_location(div, file$n, 17, 6, 391);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, div, anchor);
@@ -33552,9 +33560,9 @@ var app = (function () {
     			t1 = text(". ");
     			t2 = text(t2_value);
     			t3 = space();
-    			add_location(span, file$n, 14, 8, 343);
+    			add_location(span, file$n, 14, 8, 329);
     			attr_dev(div, "class", "active svelte-7xb50z");
-    			add_location(div, file$n, 8, 6, 215);
+    			add_location(div, file$n, 8, 6, 207);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, div, anchor);
@@ -33605,7 +33613,7 @@ var app = (function () {
     	const block = {
     		c: function create() {
     			if_block.c();
-    			if_block_anchor = empty();
+    			if_block_anchor = empty$1();
     		},
     		m: function mount(target, anchor) {
     			if_block.m(target, anchor);
@@ -33660,7 +33668,7 @@ var app = (function () {
     			}
 
     			attr_dev(nav, "class", "svelte-7xb50z");
-    			add_location(nav, file$n, 5, 0, 128);
+    			add_location(nav, file$n, 5, 0, 123);
     		},
     		l: function claim(nodes) {
     			throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
@@ -33773,9 +33781,9 @@ var app = (function () {
     	}
     }
 
-    /* src\Tweak\SizesMenu.svelte generated by Svelte v3.46.2 */
+    /* src/Tweak/SizesMenu.svelte generated by Svelte v3.46.2 */
 
-    const file$m = "src\\Tweak\\SizesMenu.svelte";
+    const file$m = "src/Tweak/SizesMenu.svelte";
 
     function get_each_context$6(ctx, list, i) {
     	const child_ctx = ctx.slice();
@@ -33809,7 +33817,7 @@ var app = (function () {
     			t1 = text(" см");
     			option.__value = /*x*/ ctx[13];
     			option.value = option.__value;
-    			add_location(option, file$m, 53, 6, 1129);
+    			add_location(option, file$m, 53, 6, 1076);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, option, anchor);
@@ -33847,7 +33855,7 @@ var app = (function () {
     			t1 = text(" см");
     			option.__value = /*x*/ ctx[13];
     			option.value = option.__value;
-    			add_location(option, file$m, 61, 6, 1382);
+    			add_location(option, file$m, 61, 6, 1321);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, option, anchor);
@@ -33885,7 +33893,7 @@ var app = (function () {
     			t1 = text(" см");
     			option.__value = /*x*/ ctx[13];
     			option.value = option.__value;
-    			add_location(option, file$m, 71, 6, 1648);
+    			add_location(option, file$m, 71, 6, 1577);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, option, anchor);
@@ -33996,29 +34004,29 @@ var app = (function () {
     			t22 = space();
     			input = element("input");
     			attr_dev(span0, "class", "svelte-fdoayq");
-    			add_location(span0, file$m, 48, 2, 957);
+    			add_location(span0, file$m, 48, 2, 909);
     			if (/*$tweakSelectedWidth*/ ctx[0] === void 0) add_render_callback(() => /*select0_change_handler*/ ctx[7].call(select0));
-    			add_location(select0, file$m, 51, 2, 1051);
+    			add_location(select0, file$m, 51, 2, 1000);
     			attr_dev(div0, "class", "option svelte-fdoayq");
-    			add_location(div0, file$m, 47, 0, 933);
+    			add_location(div0, file$m, 47, 0, 886);
     			attr_dev(span1, "class", "svelte-fdoayq");
-    			add_location(span1, file$m, 58, 2, 1222);
+    			add_location(span1, file$m, 58, 2, 1164);
     			if (/*$tweakSelectedDepth*/ ctx[1] === void 0) add_render_callback(() => /*select1_change_handler*/ ctx[8].call(select1));
-    			add_location(select1, file$m, 59, 2, 1304);
+    			add_location(select1, file$m, 59, 2, 1245);
     			attr_dev(div1, "class", "option svelte-fdoayq");
-    			add_location(div1, file$m, 57, 0, 1198);
+    			add_location(div1, file$m, 57, 0, 1141);
     			attr_dev(span2, "class", "svelte-fdoayq");
-    			add_location(span2, file$m, 66, 2, 1475);
+    			add_location(span2, file$m, 66, 2, 1409);
     			if (/*$tweakSelectedHeight*/ ctx[2] === void 0) add_render_callback(() => /*select2_change_handler*/ ctx[9].call(select2));
-    			add_location(select2, file$m, 69, 2, 1568);
+    			add_location(select2, file$m, 69, 2, 1499);
     			attr_dev(div2, "class", "option svelte-fdoayq");
-    			add_location(div2, file$m, 65, 0, 1451);
+    			add_location(div2, file$m, 65, 0, 1386);
     			attr_dev(span3, "class", "svelte-fdoayq");
-    			add_location(span3, file$m, 76, 2, 1741);
+    			add_location(span3, file$m, 76, 2, 1665);
     			attr_dev(input, "type", "number");
-    			add_location(input, file$m, 77, 2, 1770);
+    			add_location(input, file$m, 77, 2, 1693);
     			attr_dev(div3, "class", "option svelte-fdoayq");
-    			add_location(div3, file$m, 75, 0, 1717);
+    			add_location(div3, file$m, 75, 0, 1642);
     		},
     		l: function claim(nodes) {
     			throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
@@ -34323,8 +34331,8 @@ var app = (function () {
     	}
     }
 
-    /* src\Tweak\SelectDecorsMenu\SubMenu.svelte generated by Svelte v3.46.2 */
-    const file$l = "src\\Tweak\\SelectDecorsMenu\\SubMenu.svelte";
+    /* src/Tweak/SelectDecorsMenu/SubMenu.svelte generated by Svelte v3.46.2 */
+    const file$l = "src/Tweak/SelectDecorsMenu/SubMenu.svelte";
 
     function get_each_context$5(ctx, list, i) {
     	const child_ctx = ctx.slice();
@@ -34452,12 +34460,12 @@ var app = (function () {
     			if (!src_url_equal(img.src, img_src_value = "./img/decor_" + /*decor*/ ctx[8].number + ".jpg")) attr_dev(img, "src", img_src_value);
     			attr_dev(img, "alt", "");
     			attr_dev(img, "class", "svelte-6zkdhe");
-    			add_location(img, file$l, 54, 12, 1500);
-    			add_location(span0, file$l, 55, 15, 1568);
-    			add_location(span1, file$l, 55, 42, 1595);
-    			add_location(p, file$l, 55, 12, 1565);
+    			add_location(img, file$l, 54, 12, 1446);
+    			add_location(span0, file$l, 55, 15, 1513);
+    			add_location(span1, file$l, 55, 42, 1540);
+    			add_location(p, file$l, 55, 12, 1510);
     			attr_dev(div, "class", "decorOpt card svelte-6zkdhe");
-    			add_location(div, file$l, 48, 10, 1342);
+    			add_location(div, file$l, 48, 10, 1294);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, div, anchor);
@@ -34531,12 +34539,12 @@ var app = (function () {
     			if (!src_url_equal(img.src, img_src_value = "./img/decor_" + /*decor*/ ctx[8].number + ".jpg")) attr_dev(img, "src", img_src_value);
     			attr_dev(img, "alt", "");
     			attr_dev(img, "class", "svelte-6zkdhe");
-    			add_location(img, file$l, 44, 12, 1171);
-    			add_location(span0, file$l, 45, 15, 1239);
-    			add_location(span1, file$l, 45, 42, 1266);
-    			add_location(p, file$l, 45, 12, 1236);
+    			add_location(img, file$l, 44, 12, 1127);
+    			add_location(span0, file$l, 45, 15, 1194);
+    			add_location(span1, file$l, 45, 42, 1221);
+    			add_location(p, file$l, 45, 12, 1191);
     			attr_dev(div, "class", "decorOpt selected card svelte-6zkdhe");
-    			add_location(div, file$l, 38, 10, 1004);
+    			add_location(div, file$l, 38, 10, 966);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, div, anchor);
@@ -34590,7 +34598,7 @@ var app = (function () {
     	const block = {
     		c: function create() {
     			if_block.c();
-    			if_block_anchor = empty();
+    			if_block_anchor = empty$1();
     		},
     		m: function mount(target, anchor) {
     			if_block.m(target, anchor);
@@ -34646,7 +34654,7 @@ var app = (function () {
     			}
 
     			attr_dev(div, "class", "card svelte-6zkdhe");
-    			add_location(div, file$l, 35, 4, 898);
+    			add_location(div, file$l, 35, 4, 863);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, div, anchor);
@@ -34955,10 +34963,10 @@ var app = (function () {
     	}
     }
 
-    /* src\Tweak\SelectDecorsMenu.svelte generated by Svelte v3.46.2 */
-    const file$k = "src\\Tweak\\SelectDecorsMenu.svelte";
+    /* src/Tweak/SelectDecorsMenu.svelte generated by Svelte v3.46.2 */
+    const file$k = "src/Tweak/SelectDecorsMenu.svelte";
 
-    // (13:2) <Card body style="background-color:#e8f4fe;" class="mb-3"      >
+    // (13:2) <Card body style="background-color:#e8f4fe;" class="mb-3"     >
     function create_default_slot$9(ctx) {
     	let submenu0;
     	let t;
@@ -35016,7 +35024,7 @@ var app = (function () {
     		block,
     		id: create_default_slot$9.name,
     		type: "slot",
-    		source: "(13:2) <Card body style=\\\"background-color:#e8f4fe;\\\" class=\\\"mb-3\\\"      >",
+    		source: "(13:2) <Card body style=\\\"background-color:#e8f4fe;\\\" class=\\\"mb-3\\\"     >",
     		ctx
     	});
 
@@ -35044,7 +35052,7 @@ var app = (function () {
     			div = element("div");
     			create_component(card.$$.fragment);
     			attr_dev(div, "class", "main");
-    			add_location(div, file$k, 11, 0, 340);
+    			add_location(div, file$k, 11, 0, 329);
     		},
     		l: function claim(nodes) {
     			throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
@@ -35135,8 +35143,8 @@ var app = (function () {
     	}
     }
 
-    /* src\Tweak\ApplyDecorsMenu\Collapse.svelte generated by Svelte v3.46.2 */
-    const file$j = "src\\Tweak\\ApplyDecorsMenu\\Collapse.svelte";
+    /* src/Tweak/ApplyDecorsMenu/Collapse.svelte generated by Svelte v3.46.2 */
+    const file$j = "src/Tweak/ApplyDecorsMenu/Collapse.svelte";
 
     // (17:45) {:else}
     function create_else_block$b(ctx) {
@@ -35236,7 +35244,7 @@ var app = (function () {
     			div = element("div");
     			if (default_slot) default_slot.c();
     			attr_dev(div, "id", "body");
-    			add_location(div, file$j, 21, 4, 484);
+    			add_location(div, file$j, 21, 4, 463);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, div, anchor);
@@ -35326,15 +35334,15 @@ var app = (function () {
     			t2 = space();
     			if (if_block1) if_block1.c();
     			attr_dev(h3, "class", "svelte-1mpr8mf");
-    			add_location(h3, file$j, 14, 4, 298);
+    			add_location(h3, file$j, 14, 4, 284);
     			attr_dev(div0, "id", "icon-wrapper");
-    			add_location(div0, file$j, 15, 4, 319);
+    			add_location(div0, file$j, 15, 4, 304);
     			attr_dev(div1, "id", "toggler");
     			attr_dev(div1, "class", "svelte-1mpr8mf");
-    			add_location(div1, file$j, 8, 2, 207);
+    			add_location(div1, file$j, 8, 2, 199);
     			attr_dev(div2, "id", "collapse");
     			attr_dev(div2, "class", "svelte-1mpr8mf");
-    			add_location(div2, file$j, 7, 0, 184);
+    			add_location(div2, file$j, 7, 0, 177);
     		},
     		l: function claim(nodes) {
     			throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
@@ -35497,8 +35505,8 @@ var app = (function () {
     	}
     }
 
-    /* src\Tweak\ApplyDecorsMenu\SelectedDecors.svelte generated by Svelte v3.46.2 */
-    const file$i = "src\\Tweak\\ApplyDecorsMenu\\SelectedDecors.svelte";
+    /* src/Tweak/ApplyDecorsMenu/SelectedDecors.svelte generated by Svelte v3.46.2 */
+    const file$i = "src/Tweak/ApplyDecorsMenu/SelectedDecors.svelte";
 
     function get_each_context$4(ctx, list, i) {
     	const child_ctx = ctx.slice();
@@ -35534,10 +35542,10 @@ var app = (function () {
     			if (!src_url_equal(img.src, img_src_value = "./img/decor_" + /*$tweakSecondDecor*/ ctx[2] + ".jpg")) attr_dev(img, "src", img_src_value);
     			attr_dev(img, "alt", "");
     			attr_dev(img, "class", "svelte-17tozzs");
-    			add_location(img, file$i, 64, 8, 1820);
-    			add_location(p, file$i, 65, 8, 1886);
+    			add_location(img, file$i, 64, 8, 1756);
+    			add_location(p, file$i, 65, 8, 1821);
     			attr_dev(div, "class", "my-card option  svelte-17tozzs");
-    			add_location(div, file$i, 57, 6, 1629);
+    			add_location(div, file$i, 57, 6, 1572);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, div, anchor);
@@ -35607,10 +35615,10 @@ var app = (function () {
     			if (!src_url_equal(img.src, img_src_value = "./img/decor_" + /*$tweakFitstDecor*/ ctx[1] + ".jpg")) attr_dev(img, "src", img_src_value);
     			attr_dev(img, "alt", "");
     			attr_dev(img, "class", "svelte-17tozzs");
-    			add_location(img, file$i, 53, 8, 1496);
-    			add_location(p, file$i, 54, 8, 1561);
+    			add_location(img, file$i, 53, 8, 1443);
+    			add_location(p, file$i, 54, 8, 1507);
     			attr_dev(div, "class", "my-card option  svelte-17tozzs");
-    			add_location(div, file$i, 46, 6, 1306);
+    			add_location(div, file$i, 46, 6, 1260);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, div, anchor);
@@ -35667,7 +35675,7 @@ var app = (function () {
     	const block = {
     		c: function create() {
     			if_block.c();
-    			if_block_anchor = empty();
+    			if_block_anchor = empty$1();
     		},
     		m: function mount(target, anchor) {
     			if_block.m(target, anchor);
@@ -35721,10 +35729,10 @@ var app = (function () {
     			if (!src_url_equal(img.src, img_src_value = "./img/decor_" + /*$tweakSecondDecor*/ ctx[2] + ".jpg")) attr_dev(img, "src", img_src_value);
     			attr_dev(img, "alt", "");
     			attr_dev(img, "class", "svelte-17tozzs");
-    			add_location(img, file$i, 41, 10, 1139);
-    			add_location(p, file$i, 42, 10, 1207);
+    			add_location(img, file$i, 41, 10, 1098);
+    			add_location(p, file$i, 42, 10, 1165);
     			attr_dev(div, "class", "my-card option selected svelte-17tozzs");
-    			add_location(div, file$i, 34, 8, 926);
+    			add_location(div, file$i, 34, 8, 892);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, div, anchor);
@@ -35794,10 +35802,10 @@ var app = (function () {
     			if (!src_url_equal(img.src, img_src_value = "./img/decor_" + /*$tweakFitstDecor*/ ctx[1] + ".jpg")) attr_dev(img, "src", img_src_value);
     			attr_dev(img, "alt", "");
     			attr_dev(img, "class", "svelte-17tozzs");
-    			add_location(img, file$i, 30, 10, 785);
-    			add_location(p, file$i, 31, 10, 852);
+    			add_location(img, file$i, 30, 10, 755);
+    			add_location(p, file$i, 31, 10, 821);
     			attr_dev(div, "class", "my-card option selected svelte-17tozzs");
-    			add_location(div, file$i, 23, 8, 573);
+    			add_location(div, file$i, 23, 8, 550);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, div, anchor);
@@ -35855,7 +35863,7 @@ var app = (function () {
     	const block = {
     		c: function create() {
     			if_block.c();
-    			if_block_anchor = empty();
+    			if_block_anchor = empty$1();
     		},
     		m: function mount(target, anchor) {
     			if_block.m(target, anchor);
@@ -35910,7 +35918,7 @@ var app = (function () {
     			}
 
     			attr_dev(div, "class", "my-card flexbox svelte-17tozzs");
-    			add_location(div, file$i, 19, 0, 450);
+    			add_location(div, file$i, 19, 0, 431);
     		},
     		l: function claim(nodes) {
     			throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
@@ -36067,9 +36075,9 @@ var app = (function () {
     	}
     }
 
-    /* src\Tweak\ApplyDecorsMenu.svelte generated by Svelte v3.46.2 */
+    /* src/Tweak/ApplyDecorsMenu.svelte generated by Svelte v3.46.2 */
 
-    // (14:0) <Collapse text="Корпус"    >
+    // (14:0) <Collapse text="Корпус"   >
     function create_default_slot_5$2(ctx) {
     	let selecteddecors;
     	let current;
@@ -36103,7 +36111,7 @@ var app = (function () {
     		block,
     		id: create_default_slot_5$2.name,
     		type: "slot",
-    		source: "(14:0) <Collapse text=\\\"Корпус\\\"    >",
+    		source: "(14:0) <Collapse text=\\\"Корпус\\\"   >",
     		ctx
     	});
 
@@ -36222,7 +36230,7 @@ var app = (function () {
     	return block;
     }
 
-    // (31:2) <Collapse text="Лява врата"      >
+    // (31:2) <Collapse text="Лява врата"     >
     function create_default_slot_4$2(ctx) {
     	let selecteddecors;
     	let current;
@@ -36256,14 +36264,14 @@ var app = (function () {
     		block,
     		id: create_default_slot_4$2.name,
     		type: "slot",
-    		source: "(31:2) <Collapse text=\\\"Лява врата\\\"      >",
+    		source: "(31:2) <Collapse text=\\\"Лява врата\\\"     >",
     		ctx
     	});
 
     	return block;
     }
 
-    // (23:2) <Collapse text="Врата"      >
+    // (23:2) <Collapse text="Врата"     >
     function create_default_slot_3$2(ctx) {
     	let selecteddecors;
     	let current;
@@ -36297,7 +36305,7 @@ var app = (function () {
     		block,
     		id: create_default_slot_3$2.name,
     		type: "slot",
-    		source: "(23:2) <Collapse text=\\\"Врата\\\"      >",
+    		source: "(23:2) <Collapse text=\\\"Врата\\\"     >",
     		ctx
     	});
 
@@ -36416,7 +36424,7 @@ var app = (function () {
     	return block;
     }
 
-    // (49:2) <Collapse text="Средна врата"      >
+    // (49:2) <Collapse text="Средна врата"     >
     function create_default_slot_2$3(ctx) {
     	let selecteddecors;
     	let current;
@@ -36450,14 +36458,14 @@ var app = (function () {
     		block,
     		id: create_default_slot_2$3.name,
     		type: "slot",
-    		source: "(49:2) <Collapse text=\\\"Средна врата\\\"      >",
+    		source: "(49:2) <Collapse text=\\\"Средна врата\\\"     >",
     		ctx
     	});
 
     	return block;
     }
 
-    // (41:2) <Collapse text="Дясна врата"      >
+    // (41:2) <Collapse text="Дясна врата"     >
     function create_default_slot_1$3(ctx) {
     	let selecteddecors;
     	let current;
@@ -36491,7 +36499,7 @@ var app = (function () {
     		block,
     		id: create_default_slot_1$3.name,
     		type: "slot",
-    		source: "(41:2) <Collapse text=\\\"Дясна врата\\\"      >",
+    		source: "(41:2) <Collapse text=\\\"Дясна врата\\\"     >",
     		ctx
     	});
 
@@ -36554,7 +36562,7 @@ var app = (function () {
     	return block;
     }
 
-    // (59:2) <Collapse text="Дясна врата"      >
+    // (59:2) <Collapse text="Дясна врата"     >
     function create_default_slot$8(ctx) {
     	let selecteddecors;
     	let current;
@@ -36588,7 +36596,7 @@ var app = (function () {
     		block,
     		id: create_default_slot$8.name,
     		type: "slot",
-    		source: "(59:2) <Collapse text=\\\"Дясна врата\\\"      >",
+    		source: "(59:2) <Collapse text=\\\"Дясна врата\\\"     >",
     		ctx
     	});
 
@@ -36650,7 +36658,7 @@ var app = (function () {
     			if (if_block1) if_block1.c();
     			t2 = space();
     			if (if_block2) if_block2.c();
-    			if_block2_anchor = empty();
+    			if_block2_anchor = empty$1();
     		},
     		l: function claim(nodes) {
     			throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
@@ -36897,9 +36905,9 @@ var app = (function () {
     	}
     }
 
-    /* src\Tweak\CompleteOrders\OptionElement.svelte generated by Svelte v3.46.2 */
+    /* src/Tweak/CompleteOrders/OptionElement.svelte generated by Svelte v3.46.2 */
 
-    const file$h = "src\\Tweak\\CompleteOrders\\OptionElement.svelte";
+    const file$h = "src/Tweak/CompleteOrders/OptionElement.svelte";
 
     // (25:2) {:else}
     function create_else_block$8(ctx) {
@@ -36911,7 +36919,7 @@ var app = (function () {
     			span = element("span");
     			t = text(/*value*/ ctx[1]);
     			attr_dev(span, "class", "svelte-3v8pnq");
-    			add_location(span, file$h, 25, 4, 558);
+    			add_location(span, file$h, 25, 4, 533);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, span, anchor);
@@ -36952,7 +36960,7 @@ var app = (function () {
     			t1 = space();
     			if (if_block) if_block.c();
     			attr_dev(strong, "class", "red svelte-3v8pnq");
-    			add_location(strong, file$h, 10, 4, 236);
+    			add_location(strong, file$h, 10, 4, 226);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, strong, anchor);
@@ -37016,9 +37024,9 @@ var app = (function () {
     			img = element("img");
     			if (!src_url_equal(img.src, img_src_value = "./img/decor_" + /*value*/ ctx[1] + ".jpg")) attr_dev(img, "src", img_src_value);
     			attr_dev(img, "alt", "");
-    			add_location(img, file$h, 21, 10, 461);
+    			add_location(img, file$h, 21, 10, 440);
     			attr_dev(div, "class", "my-card svelte-3v8pnq");
-    			add_location(div, file$h, 20, 8, 428);
+    			add_location(div, file$h, 20, 8, 408);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, div, anchor);
@@ -37074,10 +37082,10 @@ var app = (function () {
     			t2 = space();
     			br = element("br");
     			attr_dev(strong, "class", "svelte-3v8pnq");
-    			add_location(strong, file$h, 7, 2, 88);
+    			add_location(strong, file$h, 7, 2, 81);
     			attr_dev(div, "class", "svelte-3v8pnq");
-    			add_location(div, file$h, 6, 0, 79);
-    			add_location(br, file$h, 28, 0, 597);
+    			add_location(div, file$h, 6, 0, 73);
+    			add_location(br, file$h, 28, 0, 569);
     		},
     		l: function claim(nodes) {
     			throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
@@ -37208,11 +37216,11 @@ var app = (function () {
     	}
     }
 
-    /* src\Tweak\CompleteOrders\AddToCartButton.svelte generated by Svelte v3.46.2 */
+    /* src/Tweak/CompleteOrders/AddToCartButton.svelte generated by Svelte v3.46.2 */
 
     const { console: console_1$6 } = globals;
 
-    // (89:0) <Button    on:click={addToCart}    color="danger"    style="background-color:rgb(119, 0, 0);">
+    // (89:0) <Button   on:click={addToCart}   color="danger"   style="background-color:rgb(119, 0, 0);">
     function create_default_slot$7(ctx) {
     	let t;
 
@@ -37232,7 +37240,7 @@ var app = (function () {
     		block,
     		id: create_default_slot$7.name,
     		type: "slot",
-    		source: "(89:0) <Button    on:click={addToCart}    color=\\\"danger\\\"    style=\\\"background-color:rgb(119, 0, 0);\\\">",
+    		source: "(89:0) <Button   on:click={addToCart}   color=\\\"danger\\\"   style=\\\"background-color:rgb(119, 0, 0);\\\">",
     		ctx
     	});
 
@@ -37445,8 +37453,8 @@ var app = (function () {
     	}
     }
 
-    /* src\Tweak\CompleteOrder.svelte generated by Svelte v3.46.2 */
-    const file$g = "src\\Tweak\\CompleteOrder.svelte";
+    /* src/Tweak/CompleteOrder.svelte generated by Svelte v3.46.2 */
+    const file$g = "src/Tweak/CompleteOrder.svelte";
 
     // (28:2) {:else}
     function create_else_block$7(ctx) {
@@ -37753,7 +37761,7 @@ var app = (function () {
     			t5 = space();
     			create_component(addtocartbutton.$$.fragment);
     			attr_dev(div, "class", "my-card");
-    			add_location(div, file$g, 17, 0, 401);
+    			add_location(div, file$g, 17, 0, 384);
     		},
     		l: function claim(nodes) {
     			throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
@@ -37948,75 +37956,44 @@ var app = (function () {
     	}
     }
 
-    /* src\Tweak\ZdogModel.svelte generated by Svelte v3.46.2 */
+    /* src/Tweak/ZdogModel.svelte generated by Svelte v3.46.2 */
 
     const { console: console_1$5 } = globals;
 
-    const file$f = "src\\Tweak\\ZdogModel.svelte";
+    const file$f = "src/Tweak/ZdogModel.svelte";
 
     function create_fragment$h(ctx) {
     	let svg_1;
-    	let t0;
+    	let t;
     	let div;
-    	let button;
-    	let t2;
-    	let input;
-    	let mounted;
-    	let dispose;
 
     	const block = {
     		c: function create() {
     			svg_1 = svg_element("svg");
-    			t0 = space();
+    			t = space();
     			div = element("div");
-    			button = element("button");
-    			button.textContent = "ClickMe";
-    			t2 = space();
-    			input = element("input");
-    			attr_dev(svg_1, "class", "svelte-1dffthr");
-    			add_location(svg_1, file$f, 156, 0, 4064);
-    			attr_dev(button, "class", "test-button-color-change-zdog");
-    			add_location(button, file$f, 159, 2, 4100);
-    			add_location(input, file$f, 165, 2, 4243);
-    			attr_dev(div, "class", "svelte-1dffthr");
-    			add_location(div, file$f, 158, 0, 4091);
+    			attr_dev(svg_1, "class", "svelte-zsyc53");
+    			add_location(svg_1, file$f, 313, 0, 8012);
+    			attr_dev(div, "class", "svelte-zsyc53");
+    			add_location(div, file$f, 314, 0, 8036);
     		},
     		l: function claim(nodes) {
     			throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, svg_1, anchor);
-    			/*svg_1_binding*/ ctx[3](svg_1);
-    			insert_dev(target, t0, anchor);
+    			/*svg_1_binding*/ ctx[1](svg_1);
+    			insert_dev(target, t, anchor);
     			insert_dev(target, div, anchor);
-    			append_dev(div, button);
-    			append_dev(div, t2);
-    			append_dev(div, input);
-    			set_input_value(input, /*colorPick*/ ctx[1]);
-
-    			if (!mounted) {
-    				dispose = [
-    					listen_dev(button, "click", /*click_handler*/ ctx[4], false, false, false),
-    					listen_dev(input, "input", /*input_input_handler*/ ctx[5])
-    				];
-
-    				mounted = true;
-    			}
     		},
-    		p: function update(ctx, [dirty]) {
-    			if (dirty & /*colorPick*/ 2 && input.value !== /*colorPick*/ ctx[1]) {
-    				set_input_value(input, /*colorPick*/ ctx[1]);
-    			}
-    		},
+    		p: noop$1,
     		i: noop$1,
     		o: noop$1,
     		d: function destroy(detaching) {
     			if (detaching) detach_dev(svg_1);
-    			/*svg_1_binding*/ ctx[3](null);
-    			if (detaching) detach_dev(t0);
+    			/*svg_1_binding*/ ctx[1](null);
+    			if (detaching) detach_dev(t);
     			if (detaching) detach_dev(div);
-    			mounted = false;
-    			run_all(dispose);
     		}
     	};
 
@@ -38031,31 +38008,40 @@ var app = (function () {
     	return block;
     }
 
+    function empty(element) {
+    	console.log(element);
+    	debugger;
+
+    	while (element.firstChild) {
+    		element.removeChild(element.firstChild);
+    	}
+    }
+
     function instance$h($$self, $$props, $$invalidate) {
     	let $tweak;
     	let $tweakSelectedDepth;
+    	let $tweakSecondDoor;
     	let $tweakFirstDoor;
+    	let $tweakMainDecor;
     	let $tweakSelectedHeight;
     	let $tweakSelectedWidth;
-    	let $tweakMainDecor;
     	validate_store(tweak, 'tweak');
-    	component_subscribe($$self, tweak, $$value => $$invalidate(7, $tweak = $$value));
+    	component_subscribe($$self, tweak, $$value => $$invalidate(2, $tweak = $$value));
     	validate_store(tweakSelectedDepth, 'tweakSelectedDepth');
-    	component_subscribe($$self, tweakSelectedDepth, $$value => $$invalidate(8, $tweakSelectedDepth = $$value));
+    	component_subscribe($$self, tweakSelectedDepth, $$value => $$invalidate(3, $tweakSelectedDepth = $$value));
+    	validate_store(tweakSecondDoor, 'tweakSecondDoor');
+    	component_subscribe($$self, tweakSecondDoor, $$value => $$invalidate(4, $tweakSecondDoor = $$value));
     	validate_store(tweakFirstDoor, 'tweakFirstDoor');
-    	component_subscribe($$self, tweakFirstDoor, $$value => $$invalidate(9, $tweakFirstDoor = $$value));
-    	validate_store(tweakSelectedHeight, 'tweakSelectedHeight');
-    	component_subscribe($$self, tweakSelectedHeight, $$value => $$invalidate(10, $tweakSelectedHeight = $$value));
-    	validate_store(tweakSelectedWidth, 'tweakSelectedWidth');
-    	component_subscribe($$self, tweakSelectedWidth, $$value => $$invalidate(11, $tweakSelectedWidth = $$value));
+    	component_subscribe($$self, tweakFirstDoor, $$value => $$invalidate(5, $tweakFirstDoor = $$value));
     	validate_store(tweakMainDecor, 'tweakMainDecor');
-    	component_subscribe($$self, tweakMainDecor, $$value => $$invalidate(2, $tweakMainDecor = $$value));
+    	component_subscribe($$self, tweakMainDecor, $$value => $$invalidate(6, $tweakMainDecor = $$value));
+    	validate_store(tweakSelectedHeight, 'tweakSelectedHeight');
+    	component_subscribe($$self, tweakSelectedHeight, $$value => $$invalidate(7, $tweakSelectedHeight = $$value));
+    	validate_store(tweakSelectedWidth, 'tweakSelectedWidth');
+    	component_subscribe($$self, tweakSelectedWidth, $$value => $$invalidate(8, $tweakSelectedWidth = $$value));
     	let { $$slots: slots = {}, $$scope } = $$props;
     	validate_slots('ZdogModel', slots, []);
     	let svg;
-    	let render;
-    	let testShape;
-    	let colorPick;
     	let unsubscribeFunctionsArray = [];
 
     	// rendering sizes
@@ -38065,140 +38051,263 @@ var app = (function () {
     		const sceneHeight = 16;
     		let viewWidth = sceneWidth * zoom;
     		let viewHeight = sceneHeight * zoom;
-    		let svgWidth = svg.clientHeight;
-    		let svgHeight = svg.clientWidth;
+    		svg.clientHeight;
+    		svg.clientWidth;
 
     		// set viewBox using zoom
     		svg.setAttribute("viewBox", `${-viewWidth / 2}  ${-viewHeight / 2} ` + `${viewWidth} ${viewHeight}`);
 
-    		// rendering variable
-    		let isSpinning = false;
-
-    		const TAU = Zdog.TAU;
+    		Zdog.TAU;
 
     		// create an scene Anchor to hold all items
     		let scene = new Zdog.Anchor();
 
-    		// ----- model ----- //
-    		// add shapes to scene
+    		// Models Specific Sizes //
+    		let doorsDepth = 1.8;
+
+    		let doorsMargin = 4;
+
     		let decorColorsMap = {
-    			H3331: "#aa6a10",
+    			H3331: "#998466",
     			H1401: "#d8d8d8",
     			U960ST9: "#696969"
     		};
 
-    		new Zdog.Box({
-    				addTo: scene,
-    				width: $tweakSelectedWidth,
-    				height: $tweakSelectedHeight,
-    				depth: $tweakSelectedDepth,
-    				stroke: false,
-    				color: decorColorsMap[$tweakMainDecor]
-    			});
-
-    		//Creating the handles functions
-    		function createRightHandle(door) {
-    			console.log(door);
-
-    			new Zdog.Shape({
-    					addTo: door,
-    					// no path set, default to single point
-    					stroke: 4,
-    					color: "#000",
-    					translate: { x: door.translate.x / 2, z: 1 }
-    				});
+    		// ----- utilities ----- //
+    		//Calculate the widht of the doors
+    		function doorsWidth() {
+    			let numDoors = $tweak;
+    			let answer = ($tweakSelectedWidth - doorsMargin * (2 - 1 + numDoors)) / numDoors;
+    			console.log(answer);
+    			return answer;
     		}
 
+    		function doorsHeight() {
+    			return $tweakSelectedHeight - 5;
+    		}
+
+    		function doorTranslateX(doorNo) {
+    			let remainingSideSpace = ($tweakSelectedWidth - doorsWidth()) / 2;
+
+    			return doorNo == 1
+    			? remainingSideSpace - doorsMargin
+    			: doorsMargin - remainingSideSpace;
+    		}
+
+    		// ----- model ----- //
+    		// add shapes to scene
+    		let corpus = {
+    			addTo: scene,
+    			width: $tweakSelectedWidth,
+    			height: $tweakSelectedHeight,
+    			depth: $tweakSelectedDepth,
+    			stroke: false,
+    			rotate: { x: -0.17, y: -0.2 },
+    			// color: decorColorsMap[$tweakMainDecor],
+    			frontFace: decorColorsMap[$tweakMainDecor],
+    			leftFace: decorColorsMap[$tweakMainDecor],
+    			topFace: decorColorsMap[$tweakMainDecor],
+    			rareFace: "#000",
+    			rightFace: "#000",
+    			bottomFace: "#000"
+    		};
+
     		let firstDoor;
+    		let secondDoor;
+    		let thirdDoor;
 
     		if ($tweak == 1) {
-    			firstDoor = new Zdog.Box({
-    					addTo: scene,
-    					width: $tweakSelectedWidth - 8,
-    					height: $tweakSelectedHeight - 5,
-    					depth: 1.8,
-    					color: decorColorsMap[$tweakFirstDoor],
-    					translate: { z: $tweakSelectedDepth / 2 + 5 }
-    				});
+    			firstDoor = {
+    				addTo: corpus,
+    				width: doorsWidth(),
+    				height: doorsHeight(),
+    				depth: doorsDepth,
+    				color: decorColorsMap[$tweakFirstDoor],
+    				translate: { z: $tweakSelectedDepth / 2 + 8 }
+    			};
+    		}
 
-    			createRightHandle(firstDoor);
+    		if ($tweak == 2) {
+    			firstDoor = {
+    				addTo: corpus,
+    				width: doorsWidth() - doorsMargin / 2,
+    				height: doorsHeight(),
+    				depth: doorsDepth,
+    				color: decorColorsMap[$tweakFirstDoor],
+    				translate: {
+    					x: doorTranslateX(1),
+    					z: $tweakSelectedDepth / 2 + 8
+    				}
+    			};
+
+    			secondDoor = {
+    				addTo: corpus,
+    				width: doorsWidth() - doorsMargin / 2,
+    				height: doorsHeight(),
+    				depth: doorsDepth,
+    				color: decorColorsMap[$tweakSecondDoor],
+    				translate: {
+    					x: doorTranslateX(2),
+    					z: $tweakSelectedDepth / 2 + 8
+    				}
+    			};
+    		}
+
+    		if ($tweak == 3) {
+    			firstDoor = {
+    				addTo: corpus,
+    				width: doorsWidth() - doorsMargin / 2,
+    				height: doorsHeight(),
+    				depth: doorsDepth,
+    				color: decorColorsMap[$tweakFirstDoor],
+    				translate: {
+    					x: doorTranslateX(1),
+    					z: $tweakSelectedDepth / 2 + 8
+    				}
+    			};
+
+    			secondDoor = {
+    				addTo: corpus,
+    				width: doorsWidth() - doorsMargin / 2,
+    				height: doorsHeight(),
+    				depth: doorsDepth,
+    				color: decorColorsMap[$tweakSecondDoor],
+    				translate: {
+    					x: doorTranslateX(2),
+    					z: $tweakSelectedDepth / 2 + 8
+    				}
+    			};
+
+    			thirdDoor = {
+    				addTo: corpus,
+    				width: doorsWidth() - doorsMargin / 2,
+    				height: doorsHeight(),
+    				depth: doorsDepth,
+    				color: decorColorsMap[$tweakSecondDoor],
+    				translate: { x: 0, z: $tweakSelectedDepth / 2 + 10 }
+    			};
     		}
 
     		// ----- animate ----- //
-    		function animate() {
-    			// make changes to model, like rotating scene
-    			scene.rotate.y += isSpinning ? 0.03 : 0;
-
-    			scene.updateGraph();
-    			render();
-    			requestAnimationFrame(animate);
-    		}
-
-    		render = function () {
-    			empty(svg);
-    			scene.renderGraphSvg(svg);
-    		};
-
-    		animate();
-
+    		// function animate() {
+    		//   // make changes to model, like rotating scene
+    		//   scene.rotate.y += isSpinning ? 0.03 : 0;
+    		//   scene.updateGraph();
+    		//   render();
+    		//   requestAnimationFrame(animate);
+    		// }
+    		// let render = function () {
+    		//   empty(svg);
+    		//   scene.renderGraphSvg(svg);
+    		// };
+    		// animate();
     		function empty(element) {
     			while (element.firstChild) {
     				element.removeChild(element.firstChild);
     			}
+
+    			scene.children = [];
     		}
 
-    		// ----- drag ----- //
-    		let dragStartRX, dragStartRY;
+    		function buildModel() {
+    			let corpusModel = new Zdog.Box(corpus);
+    			firstDoor.addTo = corpusModel;
+    			new Zdog.Box(firstDoor);
 
-    		let minSize = Math.min(svgWidth, svgHeight);
+    			try {
+    				secondDoor.addTo = corpusModel;
+    				new Zdog.Box(secondDoor);
+    			} catch {
+    				console.log("No Second Door");
+    			}
 
-    		// add drag-rotatation with Dragger
-    		new Zdog.Dragger({
-    				startElement: svg,
-    				onDragStart() {
-    					isSpinning = false;
-    					dragStartRX = scene.rotate.x;
-    					dragStartRY = scene.rotate.y;
-    				},
-    				onDragMove(pointer, moveX, moveY) {
-    					scene.rotate.x = dragStartRX - moveY * 0.1 / minSize * TAU;
-    					scene.rotate.y = dragStartRY - moveX * 0.1 / minSize * TAU;
+    			try {
+    				thirdDoor.addTo = corpusModel;
+    				new Zdog.Box(thirdDoor);
+    			} catch {
+    				
+    			}
+    		}
+
+    		function render() {
+    			empty(svg);
+    			buildModel();
+    			scene.updateGraph();
+    			scene.renderGraphSvg(svg);
+    			console.log(svg);
+    		}
+
+    		// ----- On-Change Events ----- //
+    		{
+    			//Sizes
+    			unsubscribeFunctionsArray.push(tweakSelectedHeight.subscribe(value => {
+    				corpus.height = value;
+    				firstDoor.height = doorsHeight();
+
+    				if ($tweak > 1) {
+    					secondDoor.height = doorsHeight();
     				}
-    			});
 
-    		// Subscribing the store values
-    		//Sizes
-    		unsubscribeFunctionsArray.push(tweakSelectedHeight.subscribe(value => {
-    			
-    		}));
+    				if ($tweak > 2) {
+    					thirdDoor.height = doorsHeight();
+    				}
 
-    		unsubscribeFunctionsArray.push(tweakSelectedWidth.subscribe(value => {
-    			
-    		}));
+    				render();
+    			}));
 
-    		unsubscribeFunctionsArray.push(tweakThirdDoor.subscribe(value => {
-    			
-    		}));
+    			unsubscribeFunctionsArray.push(tweakSelectedWidth.subscribe(value => {
+    				corpus.width = value;
+    				firstDoor.width = doorsWidth();
 
-    		//Colors
-    		unsubscribeFunctionsArray.push(tweakMainDecor.subscribe(value => {
-    			
-    		}));
+    				if ($tweak > 1) {
+    					//If 2 or 3 doors
+    					secondDoor.width = doorsWidth();
 
-    		unsubscribeFunctionsArray.push(tweakFirstDoor.subscribe(value => {
-    			
-    		}));
+    					firstDoor.translate.x = doorTranslateX(1);
+    					secondDoor.translate.x = doorTranslateX(2);
+    				}
 
-    		if ($tweak > 1) {
-    			unsubscribeFunctionsArray.push(tweakSecondDoor.subscribe(value => {
-    				
+    				if ($tweak > 2) {
+    					//If 3 doors
+    					thirdDoor.width = doorsWidth();
+    				}
+
+    				render();
+    			}));
+
+    			unsubscribeFunctionsArray.push(tweakSelectedDepth.subscribe(value => {
+    				corpus.depth = value;
+    				render();
     			}));
     		}
 
-    		if ($tweak > 2) {
-    			unsubscribeFunctionsArray.push(tweakThirdDoor.subscribe(value => {
-    				
+    		{
+    			//Colors
+    			unsubscribeFunctionsArray.push(tweakMainDecor.subscribe(value => {
+    				corpus.frontFace = decorColorsMap[value];
+    				corpus.leftFace = decorColorsMap[value];
+    				corpus.topFace = decorColorsMap[value];
+    				render();
     			}));
+
+    			unsubscribeFunctionsArray.push(tweakFirstDoor.subscribe(value => {
+    				firstDoor.color = decorColorsMap[value];
+    				render();
+    			}));
+
+    			if ($tweak > 1) {
+    				unsubscribeFunctionsArray.push(tweakSecondDoor.subscribe(value => {
+    					secondDoor.color = decorColorsMap[value];
+    					render();
+    				}));
+    			}
+
+    			if ($tweak > 2) {
+    				unsubscribeFunctionsArray.push(tweakThirdDoor.subscribe(value => {
+    					thirdDoor.color = decorColorsMap[value];
+    					render();
+    				}));
+    			}
     		}
     	});
 
@@ -38221,18 +38330,11 @@ var app = (function () {
     		});
     	}
 
-    	const click_handler = () => {
-    		console.log($tweakMainDecor);
-    	};
-
-    	function input_input_handler() {
-    		colorPick = this.value;
-    		$$invalidate(1, colorPick);
-    	}
-
     	$$self.$capture_state = () => ({
     		onMount,
     		onDestroy,
+    		add_flush_callback,
+    		detach_after_dev,
     		tweak,
     		tweakSelectedWidth,
     		tweakSelectedDepth,
@@ -38242,23 +38344,19 @@ var app = (function () {
     		tweakSecondDoor,
     		tweakThirdDoor,
     		svg,
-    		render,
-    		testShape,
-    		colorPick,
     		unsubscribeFunctionsArray,
+    		empty,
     		$tweak,
     		$tweakSelectedDepth,
+    		$tweakSecondDoor,
     		$tweakFirstDoor,
+    		$tweakMainDecor,
     		$tweakSelectedHeight,
-    		$tweakSelectedWidth,
-    		$tweakMainDecor
+    		$tweakSelectedWidth
     	});
 
     	$$self.$inject_state = $$props => {
     		if ('svg' in $$props) $$invalidate(0, svg = $$props.svg);
-    		if ('render' in $$props) render = $$props.render;
-    		if ('testShape' in $$props) testShape = $$props.testShape;
-    		if ('colorPick' in $$props) $$invalidate(1, colorPick = $$props.colorPick);
     		if ('unsubscribeFunctionsArray' in $$props) unsubscribeFunctionsArray = $$props.unsubscribeFunctionsArray;
     	};
 
@@ -38266,14 +38364,7 @@ var app = (function () {
     		$$self.$inject_state($$props.$$inject);
     	}
 
-    	return [
-    		svg,
-    		colorPick,
-    		$tweakMainDecor,
-    		svg_1_binding,
-    		click_handler,
-    		input_input_handler
-    	];
+    	return [svg, svg_1_binding];
     }
 
     class ZdogModel extends SvelteComponentDev {
@@ -38290,8 +38381,8 @@ var app = (function () {
     	}
     }
 
-    /* src\Tweak\ZDogToggle.svelte generated by Svelte v3.46.2 */
-    const file$e = "src\\Tweak\\ZDogToggle.svelte";
+    /* src/Tweak/ZdogToggle.svelte generated by Svelte v3.46.2 */
+    const file$e = "src/Tweak/ZdogToggle.svelte";
 
     function create_fragment$g(ctx) {
     	let button;
@@ -38303,7 +38394,7 @@ var app = (function () {
     			button = element("button");
     			button.textContent = "3D";
     			attr_dev(button, "class", "svelte-iadbrq");
-    			add_location(button, file$e, 5, 0, 116);
+    			add_location(button, file$e, 5, 0, 111);
     		},
     		l: function claim(nodes) {
     			throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
@@ -38339,12 +38430,12 @@ var app = (function () {
 
     function instance$g($$self, $$props, $$invalidate) {
     	let { $$slots: slots = {}, $$scope } = $$props;
-    	validate_slots('ZDogToggle', slots, []);
+    	validate_slots('ZdogToggle', slots, []);
     	let dispach = createEventDispatcher();
     	const writable_props = [];
 
     	Object.keys($$props).forEach(key => {
-    		if (!~writable_props.indexOf(key) && key.slice(0, 2) !== '$$' && key !== 'slot') console.warn(`<ZDogToggle> was created with unknown prop '${key}'`);
+    		if (!~writable_props.indexOf(key) && key.slice(0, 2) !== '$$' && key !== 'slot') console.warn(`<ZdogToggle> was created with unknown prop '${key}'`);
     	});
 
     	const click_handler = () => {
@@ -38364,22 +38455,22 @@ var app = (function () {
     	return [dispach, click_handler];
     }
 
-    class ZDogToggle extends SvelteComponentDev {
+    class ZdogToggle extends SvelteComponentDev {
     	constructor(options) {
     		super(options);
     		init(this, options, instance$g, create_fragment$g, safe_not_equal, {});
 
     		dispatch_dev("SvelteRegisterComponent", {
     			component: this,
-    			tagName: "ZDogToggle",
+    			tagName: "ZdogToggle",
     			options,
     			id: create_fragment$g.name
     		});
     	}
     }
 
-    /* src\Tweak.svelte generated by Svelte v3.46.2 */
-    const file$d = "src\\Tweak.svelte";
+    /* src/Tweak.svelte generated by Svelte v3.46.2 */
+    const file$d = "src/Tweak.svelte";
 
     // (65:4) {#if ZdogToggleVar}
     function create_if_block_4(ctx) {
@@ -38661,7 +38752,7 @@ var app = (function () {
     	let current_block_type_index;
     	let if_block2;
     	let current;
-    	zdogtoggle = new ZDogToggle({ $$inline: true });
+    	zdogtoggle = new ZdogToggle({ $$inline: true });
     	zdogtoggle.$on("click", /*click_handler*/ ctx[4]);
     	let if_block0 = /*ZdogToggleVar*/ ctx[0] && create_if_block_4(ctx);
     	nav = new Nav({ $$inline: true });
@@ -38708,20 +38799,20 @@ var app = (function () {
     			if (!src_url_equal(img.src, img_src_value = "./img/ED_" + /*$tweak*/ ctx[2] + "doors.jpg")) attr_dev(img, "src", img_src_value);
     			attr_dev(img, "alt", "");
     			attr_dev(img, "class", "svelte-zoyq06");
-    			add_location(img, file$d, 58, 4, 1959);
+    			add_location(img, file$d, 58, 4, 1901);
     			attr_dev(div0, "id", "pic");
     			attr_dev(div0, "class", "svelte-zoyq06");
-    			add_location(div0, file$d, 57, 2, 1939);
-    			add_location(h2, file$d, 71, 6, 2247);
+    			add_location(div0, file$d, 57, 2, 1882);
+    			add_location(h2, file$d, 71, 6, 2176);
     			attr_dev(div1, "class", "options");
-    			add_location(div1, file$d, 78, 6, 2398);
+    			add_location(div1, file$d, 78, 6, 2320);
     			attr_dev(div2, "class", "padding-box svelte-zoyq06");
-    			add_location(div2, file$d, 70, 4, 2214);
+    			add_location(div2, file$d, 70, 4, 2144);
     			attr_dev(div3, "id", "config");
     			attr_dev(div3, "class", "svelte-zoyq06");
-    			add_location(div3, file$d, 68, 2, 2178);
+    			add_location(div3, file$d, 68, 2, 2110);
     			attr_dev(main, "class", "svelte-zoyq06");
-    			add_location(main, file$d, 56, 0, 1929);
+    			add_location(main, file$d, 56, 0, 1873);
     		},
     		l: function claim(nodes) {
     			throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
@@ -38944,7 +39035,7 @@ var app = (function () {
     		ApplyDecorsMenu,
     		CompleteOrder,
     		ZdogModel,
-    		ZdogToggle: ZDogToggle,
+    		ZdogToggle,
     		onMount,
     		onDestroy,
     		options,
@@ -38992,8 +39083,8 @@ var app = (function () {
     	}
     }
 
-    /* src\ShoppingCart\SmallButton.svelte generated by Svelte v3.46.2 */
-    const file$c = "src\\ShoppingCart\\SmallButton.svelte";
+    /* src/ShoppingCart/SmallButton.svelte generated by Svelte v3.46.2 */
+    const file$c = "src/ShoppingCart/SmallButton.svelte";
 
     function create_fragment$e(ctx) {
     	let button;
@@ -39009,7 +39100,7 @@ var app = (function () {
     			button = element("button");
     			if (default_slot) default_slot.c();
     			attr_dev(button, "class", button_class_value = "" + (null_to_empty(/*$$props*/ ctx[1].class) + " svelte-36ulkd"));
-    			add_location(button, file$c, 6, 0, 121);
+    			add_location(button, file$c, 6, 0, 115);
     		},
     		l: function claim(nodes) {
     			throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
@@ -39118,8 +39209,8 @@ var app = (function () {
     	}
     }
 
-    /* src\ShoppingCart\CountComponent.svelte generated by Svelte v3.46.2 */
-    const file$b = "src\\ShoppingCart\\CountComponent.svelte";
+    /* src/ShoppingCart/CountComponent.svelte generated by Svelte v3.46.2 */
+    const file$b = "src/ShoppingCart/CountComponent.svelte";
 
     // (61:2) <SmallButton on:click={increase}>
     function create_default_slot_2$2(ctx) {
@@ -39253,7 +39344,7 @@ var app = (function () {
     			t1 = space();
     			create_component(smallbutton2.$$.fragment);
     			attr_dev(div, "class", "svelte-1yrjn1q");
-    			add_location(div, file$b, 59, 0, 1848);
+    			add_location(div, file$b, 59, 0, 1789);
     		},
     		l: function claim(nodes) {
     			throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
@@ -39433,8 +39524,8 @@ var app = (function () {
     	}
     }
 
-    /* src\ShoppingCart\ConfigToggle.svelte generated by Svelte v3.46.2 */
-    const file$a = "src\\ShoppingCart\\ConfigToggle.svelte";
+    /* src/ShoppingCart/ConfigToggle.svelte generated by Svelte v3.46.2 */
+    const file$a = "src/ShoppingCart/ConfigToggle.svelte";
 
     // (15:2) {:else}
     function create_else_block$5(ctx) {
@@ -39545,7 +39636,7 @@ var app = (function () {
     			div = element("div");
     			if_block.c();
     			attr_dev(div, "class", "svelte-1t9i5tq");
-    			add_location(div, file$a, 7, 0, 180);
+    			add_location(div, file$a, 7, 0, 173);
     		},
     		l: function claim(nodes) {
     			throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
@@ -39677,7 +39768,7 @@ var app = (function () {
     	}
     }
 
-    /* src\ShoppingCart\DeleteButton.svelte generated by Svelte v3.46.2 */
+    /* src/ShoppingCart/DeleteButton.svelte generated by Svelte v3.46.2 */
 
     // (37:0) <SmallButton on:click={deleteItem}>
     function create_default_slot$5(ctx) {
@@ -39869,9 +39960,9 @@ var app = (function () {
     	}
     }
 
-    /* src\ShoppingCart\DecorOptions.svelte generated by Svelte v3.46.2 */
+    /* src/ShoppingCart/DecorOptions.svelte generated by Svelte v3.46.2 */
 
-    const file$9 = "src\\ShoppingCart\\DecorOptions.svelte";
+    const file$9 = "src/ShoppingCart/DecorOptions.svelte";
 
     function get_each_context$3(ctx, list, i) {
     	const child_ctx = ctx.slice();
@@ -39891,7 +39982,7 @@ var app = (function () {
     			t = text(t_value);
     			option.__value = /*decor*/ ctx[1];
     			option.value = option.__value;
-    			add_location(option, file$9, 5, 2, 97);
+    			add_location(option, file$9, 5, 2, 92);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, option, anchor);
@@ -39930,7 +40021,7 @@ var app = (function () {
     				each_blocks[i].c();
     			}
 
-    			each_1_anchor = empty();
+    			each_1_anchor = empty$1();
     		},
     		l: function claim(nodes) {
     			throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
@@ -40023,10 +40114,10 @@ var app = (function () {
     	}
     }
 
-    /* src\ShoppingCart\ConfigMenu.svelte generated by Svelte v3.46.2 */
+    /* src/ShoppingCart/ConfigMenu.svelte generated by Svelte v3.46.2 */
 
     const { console: console_1$4 } = globals;
-    const file$8 = "src\\ShoppingCart\\ConfigMenu.svelte";
+    const file$8 = "src/ShoppingCart/ConfigMenu.svelte";
 
     function get_each_context$2(ctx, list, i) {
     	const child_ctx = ctx.slice();
@@ -40058,7 +40149,7 @@ var app = (function () {
     			t = text(t_value);
     			option.__value = /*x*/ ctx[27];
     			option.value = option.__value;
-    			add_location(option, file$8, 97, 12, 3033);
+    			add_location(option, file$8, 97, 12, 2936);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, option, anchor);
@@ -40093,7 +40184,7 @@ var app = (function () {
     			t = text(t_value);
     			option.__value = /*x*/ ctx[27];
     			option.value = option.__value;
-    			add_location(option, file$8, 104, 12, 3282);
+    			add_location(option, file$8, 104, 12, 3178);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, option, anchor);
@@ -40128,7 +40219,7 @@ var app = (function () {
     			t = text(t_value);
     			option.__value = /*x*/ ctx[27];
     			option.value = option.__value;
-    			add_location(option, file$8, 112, 12, 3534);
+    			add_location(option, file$8, 112, 12, 3422);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, option, anchor);
@@ -40175,16 +40266,16 @@ var app = (function () {
     			t1 = space();
     			img = element("img");
     			attr_dev(span, "class", "svelte-sz9dlf");
-    			add_location(span, file$8, 133, 10, 4205);
+    			add_location(span, file$8, 133, 10, 4072);
     			attr_dev(select, "class", "svelte-sz9dlf");
     			if (/*firstDoor*/ ctx[4] === void 0) add_render_callback(() => /*select_change_handler_1*/ ctx[18].call(select));
-    			add_location(select, file$8, 133, 35, 4230);
+    			add_location(select, file$8, 133, 35, 4097);
     			if (!src_url_equal(img.src, img_src_value = "./img/decor_" + /*firstDoor*/ ctx[4] + ".jpg")) attr_dev(img, "src", img_src_value);
     			attr_dev(img, "alt", "");
     			attr_dev(img, "class", "svelte-sz9dlf");
-    			add_location(img, file$8, 136, 10, 4324);
+    			add_location(img, file$8, 136, 10, 4188);
     			attr_dev(div, "class", "decors_option svelte-sz9dlf");
-    			add_location(div, file$8, 132, 8, 4166);
+    			add_location(div, file$8, 132, 8, 4034);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, div, anchor);
@@ -40262,16 +40353,16 @@ var app = (function () {
     			t1 = space();
     			img = element("img");
     			attr_dev(span, "class", "svelte-sz9dlf");
-    			add_location(span, file$8, 126, 10, 3963);
+    			add_location(span, file$8, 126, 10, 3837);
     			attr_dev(select, "class", "svelte-sz9dlf");
     			if (/*firstDoor*/ ctx[4] === void 0) add_render_callback(() => /*select_change_handler*/ ctx[17].call(select));
-    			add_location(select, file$8, 126, 30, 3983);
+    			add_location(select, file$8, 126, 30, 3857);
     			if (!src_url_equal(img.src, img_src_value = "./img/decor_" + /*firstDoor*/ ctx[4] + ".jpg")) attr_dev(img, "src", img_src_value);
     			attr_dev(img, "alt", "");
     			attr_dev(img, "class", "svelte-sz9dlf");
-    			add_location(img, file$8, 129, 10, 4077);
+    			add_location(img, file$8, 129, 10, 3948);
     			attr_dev(div, "class", "decors_option svelte-sz9dlf");
-    			add_location(div, file$8, 125, 8, 3924);
+    			add_location(div, file$8, 125, 8, 3799);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, div, anchor);
@@ -40349,16 +40440,16 @@ var app = (function () {
     			t1 = space();
     			img = element("img");
     			attr_dev(span, "class", "svelte-sz9dlf");
-    			add_location(span, file$8, 148, 10, 4754);
+    			add_location(span, file$8, 148, 10, 4606);
     			attr_dev(select, "class", "svelte-sz9dlf");
     			if (/*secondDoor*/ ctx[5] === void 0) add_render_callback(() => /*select_change_handler_3*/ ctx[20].call(select));
-    			add_location(select, file$8, 148, 37, 4781);
+    			add_location(select, file$8, 148, 37, 4633);
     			if (!src_url_equal(img.src, img_src_value = "./img/decor_" + /*secondDoor*/ ctx[5] + ".jpg")) attr_dev(img, "src", img_src_value);
     			attr_dev(img, "alt", "");
     			attr_dev(img, "class", "svelte-sz9dlf");
-    			add_location(img, file$8, 151, 10, 4876);
+    			add_location(img, file$8, 151, 10, 4725);
     			attr_dev(div, "class", "decors_option svelte-sz9dlf");
-    			add_location(div, file$8, 147, 8, 4715);
+    			add_location(div, file$8, 147, 8, 4568);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, div, anchor);
@@ -40436,16 +40527,16 @@ var app = (function () {
     			t1 = space();
     			img = element("img");
     			attr_dev(span, "class", "svelte-sz9dlf");
-    			add_location(span, file$8, 141, 10, 4482);
+    			add_location(span, file$8, 141, 10, 4341);
     			attr_dev(select, "class", "svelte-sz9dlf");
     			if (/*secondDoor*/ ctx[5] === void 0) add_render_callback(() => /*select_change_handler_2*/ ctx[19].call(select));
-    			add_location(select, file$8, 141, 36, 4508);
+    			add_location(select, file$8, 141, 36, 4367);
     			if (!src_url_equal(img.src, img_src_value = "./img/decor_" + /*secondDoor*/ ctx[5] + ".jpg")) attr_dev(img, "src", img_src_value);
     			attr_dev(img, "alt", "");
     			attr_dev(img, "class", "svelte-sz9dlf");
-    			add_location(img, file$8, 144, 10, 4603);
+    			add_location(img, file$8, 144, 10, 4459);
     			attr_dev(div, "class", "decors_option svelte-sz9dlf");
-    			add_location(div, file$8, 140, 8, 4443);
+    			add_location(div, file$8, 140, 8, 4303);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, div, anchor);
@@ -40523,16 +40614,16 @@ var app = (function () {
     			t1 = space();
     			img = element("img");
     			attr_dev(span, "class", "svelte-sz9dlf");
-    			add_location(span, file$8, 156, 10, 5035);
+    			add_location(span, file$8, 156, 10, 4879);
     			attr_dev(select, "class", "svelte-sz9dlf");
     			if (/*thirdDoor*/ ctx[6] === void 0) add_render_callback(() => /*select_change_handler_4*/ ctx[21].call(select));
-    			add_location(select, file$8, 156, 36, 5061);
+    			add_location(select, file$8, 156, 36, 4905);
     			if (!src_url_equal(img.src, img_src_value = "./img/decor_" + /*thirdDoor*/ ctx[6] + ".jpg")) attr_dev(img, "src", img_src_value);
     			attr_dev(img, "alt", "");
     			attr_dev(img, "class", "svelte-sz9dlf");
-    			add_location(img, file$8, 159, 10, 5155);
+    			add_location(img, file$8, 159, 10, 4996);
     			attr_dev(div, "class", "decors_option svelte-sz9dlf");
-    			add_location(div, file$8, 155, 8, 4996);
+    			add_location(div, file$8, 155, 8, 4841);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, div, anchor);
@@ -40741,61 +40832,61 @@ var app = (function () {
     			button1 = element("button");
     			button1.textContent = "Отмени";
     			attr_dev(span0, "class", "svelte-sz9dlf");
-    			add_location(span0, file$8, 95, 8, 2926);
+    			add_location(span0, file$8, 95, 8, 2831);
     			if (/*selectedWidth*/ ctx[0] === void 0) add_render_callback(() => /*select0_change_handler*/ ctx[13].call(select0));
-    			add_location(select0, file$8, 95, 31, 2949);
+    			add_location(select0, file$8, 95, 31, 2854);
     			attr_dev(span1, "class", "svelte-sz9dlf");
-    			add_location(span1, file$8, 99, 9, 3101);
+    			add_location(span1, file$8, 99, 9, 3002);
     			attr_dev(div0, "class", "sizes_option svelte-sz9dlf");
-    			add_location(div0, file$8, 94, 6, 2890);
+    			add_location(div0, file$8, 94, 6, 2796);
     			attr_dev(span2, "class", "svelte-sz9dlf");
-    			add_location(span2, file$8, 102, 8, 3174);
+    			add_location(span2, file$8, 102, 8, 3072);
     			if (/*selectedDepth*/ ctx[2] === void 0) add_render_callback(() => /*select1_change_handler*/ ctx[14].call(select1));
-    			add_location(select1, file$8, 102, 32, 3198);
+    			add_location(select1, file$8, 102, 32, 3096);
     			attr_dev(span3, "class", "svelte-sz9dlf");
-    			add_location(span3, file$8, 106, 9, 3350);
+    			add_location(span3, file$8, 106, 9, 3244);
     			attr_dev(div1, "class", "sizes_option svelte-sz9dlf");
-    			add_location(div1, file$8, 101, 6, 3138);
+    			add_location(div1, file$8, 101, 6, 3037);
     			attr_dev(span4, "class", "svelte-sz9dlf");
-    			add_location(span4, file$8, 110, 8, 3425);
+    			add_location(span4, file$8, 110, 8, 3315);
     			if (/*selectedHeight*/ ctx[1] === void 0) add_render_callback(() => /*select2_change_handler*/ ctx[15].call(select2));
-    			add_location(select2, file$8, 110, 31, 3448);
+    			add_location(select2, file$8, 110, 31, 3338);
     			attr_dev(span5, "class", "svelte-sz9dlf");
-    			add_location(span5, file$8, 114, 9, 3602);
+    			add_location(span5, file$8, 114, 9, 3488);
     			attr_dev(div2, "class", "sizes_option svelte-sz9dlf");
-    			add_location(div2, file$8, 109, 6, 3389);
+    			add_location(div2, file$8, 109, 6, 3280);
     			attr_dev(div3, "id", "sizes");
     			attr_dev(div3, "class", "svelte-sz9dlf");
-    			add_location(div3, file$8, 93, 4, 2866);
+    			add_location(div3, file$8, 93, 4, 2773);
     			attr_dev(span6, "class", "svelte-sz9dlf");
-    			add_location(span6, file$8, 119, 8, 3711);
+    			add_location(span6, file$8, 119, 8, 3592);
     			attr_dev(select3, "class", "svelte-sz9dlf");
     			if (/*mainDecor*/ ctx[3] === void 0) add_render_callback(() => /*select3_change_handler*/ ctx[16].call(select3));
-    			add_location(select3, file$8, 119, 29, 3732);
+    			add_location(select3, file$8, 119, 29, 3613);
     			if (!src_url_equal(img.src, img_src_value = "./img/decor_" + /*mainDecor*/ ctx[3] + ".jpg")) attr_dev(img, "src", img_src_value);
     			attr_dev(img, "alt", "");
     			attr_dev(img, "class", "svelte-sz9dlf");
-    			add_location(img, file$8, 122, 8, 3820);
+    			add_location(img, file$8, 122, 8, 3698);
     			attr_dev(div4, "class", "decors_option svelte-sz9dlf");
-    			add_location(div4, file$8, 118, 6, 3674);
+    			add_location(div4, file$8, 118, 6, 3556);
     			attr_dev(div5, "id", "decors");
     			attr_dev(div5, "class", "svelte-sz9dlf");
-    			add_location(div5, file$8, 117, 4, 3649);
+    			add_location(div5, file$8, 117, 4, 3532);
     			attr_dev(div6, "id", "sizes_and_decors");
     			attr_dev(div6, "class", "svelte-sz9dlf");
-    			add_location(div6, file$8, 92, 2, 2833);
+    			add_location(div6, file$8, 92, 2, 2741);
     			attr_dev(button0, "type", "button");
     			attr_dev(button0, "class", "btn btn-success svelte-sz9dlf");
-    			add_location(button0, file$8, 165, 4, 5282);
+    			add_location(button0, file$8, 165, 4, 5117);
     			attr_dev(button1, "type", "button");
     			attr_dev(button1, "class", "btn btn-danger svelte-sz9dlf");
-    			add_location(button1, file$8, 168, 4, 5385);
+    			add_location(button1, file$8, 168, 4, 5217);
     			attr_dev(div7, "id", "buttons");
     			attr_dev(div7, "class", "svelte-sz9dlf");
-    			add_location(div7, file$8, 164, 2, 5258);
+    			add_location(div7, file$8, 164, 2, 5094);
     			attr_dev(div8, "id", "main");
     			attr_dev(div8, "class", "svelte-sz9dlf");
-    			add_location(div8, file$8, 91, 0, 2814);
+    			add_location(div8, file$8, 91, 0, 2723);
     		},
     		l: function claim(nodes) {
     			throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
@@ -41341,8 +41432,8 @@ var app = (function () {
     	}
     }
 
-    /* src\ShoppingCart\DropdownToggle.svelte generated by Svelte v3.46.2 */
-    const file$7 = "src\\ShoppingCart\\DropdownToggle.svelte";
+    /* src/ShoppingCart/DropdownToggle.svelte generated by Svelte v3.46.2 */
+    const file$7 = "src/ShoppingCart/DropdownToggle.svelte";
 
     // (15:2) {:else}
     function create_else_block$3(ctx) {
@@ -41453,7 +41544,7 @@ var app = (function () {
     			div = element("div");
     			if_block.c();
     			attr_dev(div, "class", "svelte-1t9i5tq");
-    			add_location(div, file$7, 7, 0, 182);
+    			add_location(div, file$7, 7, 0, 175);
     		},
     		l: function claim(nodes) {
     			throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
@@ -41585,10 +41676,10 @@ var app = (function () {
     	}
     }
 
-    /* src\ShoppingCart\CartElement.svelte generated by Svelte v3.46.2 */
+    /* src/ShoppingCart/CartElement.svelte generated by Svelte v3.46.2 */
 
     const { console: console_1$3 } = globals;
-    const file$6 = "src\\ShoppingCart\\CartElement.svelte";
+    const file$6 = "src/ShoppingCart/CartElement.svelte";
 
     // (34:4) {:else}
     function create_else_block$2(ctx) {
@@ -41601,7 +41692,7 @@ var app = (function () {
     			if (!src_url_equal(img.src, img_src_value = "./img/ED_" + /*numberOfDoors*/ ctx[2] + "doors.jpg")) attr_dev(img, "src", img_src_value);
     			attr_dev(img, "alt", "");
     			attr_dev(img, "class", "svelte-w619s1");
-    			add_location(img, file$6, 34, 6, 1140);
+    			add_location(img, file$6, 34, 6, 1106);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, img, anchor);
@@ -41638,7 +41729,7 @@ var app = (function () {
     			if (!src_url_equal(img.src, img_src_value = "./img/ED_" + /*numberOfDoors*/ ctx[2] + "doors.jpg")) attr_dev(img, "src", img_src_value);
     			attr_dev(img, "alt", "");
     			attr_dev(img, "class", "svelte-w619s1");
-    			add_location(img, file$6, 32, 6, 1065);
+    			add_location(img, file$6, 32, 6, 1033);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, img, anchor);
@@ -41664,7 +41755,7 @@ var app = (function () {
     	return block;
     }
 
-    // (44:6) <SmallButton          on:click={() => {            config = !config;          }}>
+    // (44:6) <SmallButton         on:click={() => {           config = !config;         }}>
     function create_default_slot$4(ctx) {
     	let icon;
     	let current;
@@ -41697,7 +41788,7 @@ var app = (function () {
     		block,
     		id: create_default_slot$4.name,
     		type: "slot",
-    		source: "(44:6) <SmallButton          on:click={() => {            config = !config;          }}>",
+    		source: "(44:6) <SmallButton         on:click={() => {           config = !config;         }}>",
     		ctx
     	});
 
@@ -41819,17 +41910,17 @@ var app = (function () {
     			t5 = space();
     			if (if_block1) if_block1.c();
     			attr_dev(strong, "class", "svelte-w619s1");
-    			add_location(strong, file$6, 38, 6, 1247);
+    			add_location(strong, file$6, 38, 6, 1209);
     			attr_dev(div0, "id", "count-component");
     			attr_dev(div0, "class", "svelte-w619s1");
-    			add_location(div0, file$6, 37, 4, 1213);
+    			add_location(div0, file$6, 37, 4, 1176);
     			attr_dev(div1, "id", "config-toggle___delete-button");
     			attr_dev(div1, "class", "svelte-w619s1");
-    			add_location(div1, file$6, 42, 4, 1343);
+    			add_location(div1, file$6, 42, 4, 1301);
     			attr_dev(div2, "class", "flex svelte-w619s1");
-    			add_location(div2, file$6, 30, 2, 984);
+    			add_location(div2, file$6, 30, 2, 954);
     			attr_dev(div3, "class", "my-card svelte-w619s1");
-    			add_location(div3, file$6, 29, 0, 959);
+    			add_location(div3, file$6, 29, 0, 930);
     		},
     		l: function claim(nodes) {
     			throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
@@ -42041,8 +42132,8 @@ var app = (function () {
     	}
     }
 
-    /* src\ShoppingCart\FinishOrderModal.svelte generated by Svelte v3.46.2 */
-    const file$5 = "src\\ShoppingCart\\FinishOrderModal.svelte";
+    /* src/ShoppingCart/FinishOrderModal.svelte generated by Svelte v3.46.2 */
+    const file$5 = "src/ShoppingCart/FinishOrderModal.svelte";
 
     function create_fragment$6(ctx) {
     	let div5;
@@ -42128,77 +42219,77 @@ var app = (function () {
     			button6 = element("button");
     			button6.textContent = "Save changes";
     			attr_dev(h50, "class", "modal-title");
-    			add_location(h50, file$5, 8, 8, 270);
+    			add_location(h50, file$5, 8, 8, 262);
     			attr_dev(span0, "aria-hidden", "true");
-    			add_location(span0, file$5, 15, 10, 462);
+    			add_location(span0, file$5, 15, 10, 447);
     			attr_dev(button0, "type", "button");
     			attr_dev(button0, "class", "close");
     			attr_dev(button0, "data-dismiss", "modal");
     			attr_dev(button0, "aria-label", "Close");
-    			add_location(button0, file$5, 9, 8, 320);
+    			add_location(button0, file$5, 9, 8, 311);
     			attr_dev(div0, "class", "modal-header");
-    			add_location(div0, file$5, 7, 6, 234);
-    			add_location(p, file$5, 19, 8, 576);
+    			add_location(div0, file$5, 7, 6, 227);
+    			add_location(p, file$5, 19, 8, 557);
     			attr_dev(div1, "class", "modal-body");
-    			add_location(div1, file$5, 18, 6, 542);
+    			add_location(div1, file$5, 18, 6, 524);
     			attr_dev(button1, "type", "button");
     			attr_dev(button1, "class", "btn btn-primary");
-    			add_location(button1, file$5, 22, 8, 667);
+    			add_location(button1, file$5, 22, 8, 645);
     			attr_dev(button2, "type", "button");
     			attr_dev(button2, "class", "btn btn-secondary");
     			attr_dev(button2, "data-dismiss", "modal");
-    			add_location(button2, file$5, 23, 8, 744);
+    			add_location(button2, file$5, 23, 8, 721);
     			attr_dev(div2, "class", "modal-footer");
-    			add_location(div2, file$5, 21, 6, 631);
+    			add_location(div2, file$5, 21, 6, 610);
     			attr_dev(div3, "class", "modal-content");
-    			add_location(div3, file$5, 6, 4, 199);
+    			add_location(div3, file$5, 6, 4, 193);
     			attr_dev(div4, "class", "modal-dialog");
     			attr_dev(div4, "role", "document");
-    			add_location(div4, file$5, 5, 2, 151);
+    			add_location(div4, file$5, 5, 2, 146);
     			attr_dev(div5, "class", "modal");
     			attr_dev(div5, "tabindex", "-1");
     			attr_dev(div5, "role", "dialog");
-    			add_location(div5, file$5, 4, 0, 100);
+    			add_location(div5, file$5, 4, 0, 96);
     			attr_dev(button3, "type", "button");
     			attr_dev(button3, "class", "btn btn-primary");
     			attr_dev(button3, "data-toggle", "modal");
     			attr_dev(button3, "data-target", "#exampleModal");
-    			add_location(button3, file$5, 32, 0, 928);
+    			add_location(button3, file$5, 32, 0, 896);
     			attr_dev(h51, "class", "modal-title");
     			attr_dev(h51, "id", "exampleModalLabel");
-    			add_location(h51, file$5, 53, 8, 1356);
+    			add_location(h51, file$5, 53, 8, 1303);
     			attr_dev(span1, "aria-hidden", "true");
-    			add_location(span1, file$5, 60, 10, 1571);
+    			add_location(span1, file$5, 60, 10, 1511);
     			attr_dev(button4, "type", "button");
     			attr_dev(button4, "class", "close");
     			attr_dev(button4, "data-dismiss", "modal");
     			attr_dev(button4, "aria-label", "Close");
-    			add_location(button4, file$5, 54, 8, 1429);
+    			add_location(button4, file$5, 54, 8, 1375);
     			attr_dev(div6, "class", "modal-header");
-    			add_location(div6, file$5, 52, 6, 1320);
+    			add_location(div6, file$5, 52, 6, 1268);
     			attr_dev(div7, "class", "modal-body");
-    			add_location(div7, file$5, 63, 6, 1651);
+    			add_location(div7, file$5, 63, 6, 1588);
     			attr_dev(button5, "type", "button");
     			attr_dev(button5, "class", "btn btn-secondary");
     			attr_dev(button5, "data-dismiss", "modal");
-    			add_location(button5, file$5, 65, 8, 1728);
+    			add_location(button5, file$5, 65, 8, 1663);
     			attr_dev(button6, "type", "button");
     			attr_dev(button6, "class", "btn btn-primary");
-    			add_location(button6, file$5, 68, 8, 1843);
+    			add_location(button6, file$5, 68, 8, 1775);
     			attr_dev(div8, "class", "modal-footer");
-    			add_location(div8, file$5, 64, 6, 1692);
+    			add_location(div8, file$5, 64, 6, 1628);
     			attr_dev(div9, "class", "modal-content");
-    			add_location(div9, file$5, 51, 4, 1285);
+    			add_location(div9, file$5, 51, 4, 1234);
     			attr_dev(div10, "class", "modal-dialog");
     			attr_dev(div10, "role", "document");
-    			add_location(div10, file$5, 50, 2, 1237);
+    			add_location(div10, file$5, 50, 2, 1187);
     			attr_dev(div11, "class", "modal fade");
     			attr_dev(div11, "id", "exampleModal");
     			attr_dev(div11, "tabindex", "-1");
     			attr_dev(div11, "role", "dialog");
     			attr_dev(div11, "aria-labelledby", "exampleModalLabel");
     			attr_dev(div11, "aria-hidden", "true");
-    			add_location(div11, file$5, 42, 0, 1088);
+    			add_location(div11, file$5, 42, 0, 1046);
     		},
     		l: function claim(nodes) {
     			throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
@@ -42318,10 +42409,10 @@ var app = (function () {
       writeOrderToDatabase();
     }
 
-    /* src\ShoppingCart\OrderButton.svelte generated by Svelte v3.46.2 */
+    /* src/ShoppingCart/OrderButton.svelte generated by Svelte v3.46.2 */
 
     const { Object: Object_1$2, console: console_1$2 } = globals;
-    const file$4 = "src\\ShoppingCart\\OrderButton.svelte";
+    const file$4 = "src/ShoppingCart/OrderButton.svelte";
 
     function get_each_context$1(ctx, list, i) {
     	const child_ctx = ctx.slice();
@@ -42368,7 +42459,7 @@ var app = (function () {
     			t = text(t_value);
     			option.__value = /*city*/ ctx[3];
     			option.value = option.__value;
-    			add_location(option, file$4, 701, 12, 22201);
+    			add_location(option, file$4, 701, 12, 21500);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, option, anchor);
@@ -42439,17 +42530,17 @@ var app = (function () {
     			t5 = text("Цена: ");
     			t6 = text(t6_value);
     			t7 = text(" лв.");
-    			add_location(span0, file$4, 699, 8, 22108);
+    			add_location(span0, file$4, 699, 8, 21409);
     			if (/*city*/ ctx[3] === void 0) add_render_callback(() => /*select_change_handler*/ ctx[7].call(select));
-    			add_location(select, file$4, 699, 27, 22127);
+    			add_location(select, file$4, 699, 27, 21428);
     			attr_dev(div0, "class", "option svelte-6zt152");
-    			add_location(div0, file$4, 698, 6, 22078);
-    			add_location(span1, file$4, 706, 8, 22327);
+    			add_location(div0, file$4, 698, 6, 21380);
+    			add_location(span1, file$4, 706, 8, 21621);
     			attr_dev(input, "type", "text");
-    			add_location(input, file$4, 706, 29, 22348);
+    			add_location(input, file$4, 706, 29, 21642);
     			attr_dev(div1, "class", "option svelte-6zt152");
-    			add_location(div1, file$4, 705, 6, 22297);
-    			add_location(strong, file$4, 708, 6, 22411);
+    			add_location(div1, file$4, 705, 6, 21592);
+    			add_location(strong, file$4, 708, 6, 21703);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, div0, anchor);
@@ -42540,7 +42631,7 @@ var app = (function () {
     	return block;
     }
 
-    // (712:6) <Button          color="success"          on:click={() => {            makeAnOrder(false);          }}>
+    // (712:6) <Button         color="success"         on:click={() => {           makeAnOrder(false);         }}>
     function create_default_slot_3$1(ctx) {
     	let t;
 
@@ -42560,7 +42651,7 @@ var app = (function () {
     		block,
     		id: create_default_slot_3$1.name,
     		type: "slot",
-    		source: "(712:6) <Button          color=\\\"success\\\"          on:click={() => {            makeAnOrder(false);          }}>",
+    		source: "(712:6) <Button         color=\\\"success\\\"         on:click={() => {           makeAnOrder(false);         }}>",
     		ctx
     	});
 
@@ -42812,8 +42903,8 @@ var app = (function () {
     			t1 = space();
     			create_component(modal.$$.fragment);
     			attr_dev(button, "class", "btn btn-danger svelte-6zt152");
-    			add_location(button, file$4, 694, 2, 21892);
-    			add_location(div, file$4, 693, 0, 21883);
+    			add_location(button, file$4, 694, 2, 21198);
+    			add_location(div, file$4, 693, 0, 21190);
     		},
     		l: function claim(nodes) {
     			throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
@@ -43638,10 +43729,10 @@ var app = (function () {
     	}
     }
 
-    /* src\ShoppingCart\GenerateTheRoutes.svelte generated by Svelte v3.46.2 */
+    /* src/ShoppingCart/GenerateTheRoutes.svelte generated by Svelte v3.46.2 */
 
     const { Object: Object_1$1 } = globals;
-    const file$3 = "src\\ShoppingCart\\GenerateTheRoutes.svelte";
+    const file$3 = "src/ShoppingCart/GenerateTheRoutes.svelte";
 
     function create_fragment$4(ctx) {
     	let button;
@@ -43651,7 +43742,7 @@ var app = (function () {
     			button = element("button");
     			button.textContent = "Generate Routes";
     			attr_dev(button, "class", "btn btn-warning");
-    			add_location(button, file$3, 63, 0, 1369);
+    			add_location(button, file$3, 63, 0, 1306);
     		},
     		l: function claim(nodes) {
     			throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
@@ -43783,10 +43874,10 @@ var app = (function () {
     	}
     }
 
-    /* src\ShoppingCart.svelte generated by Svelte v3.46.2 */
+    /* src/ShoppingCart.svelte generated by Svelte v3.46.2 */
 
     const { Object: Object_1 } = globals;
-    const file$2 = "src\\ShoppingCart.svelte";
+    const file$2 = "src/ShoppingCart.svelte";
 
     function get_each_context_1(ctx, list, i) {
     	const child_ctx = ctx.slice();
@@ -43824,7 +43915,7 @@ var app = (function () {
     				each_blocks[i].c();
     			}
 
-    			each_1_anchor = empty();
+    			each_1_anchor = empty$1();
     		},
     		m: function mount(target, anchor) {
     			for (let i = 0; i < each_blocks.length; i += 1) {
@@ -43903,7 +43994,7 @@ var app = (function () {
     				each_blocks[i].c();
     			}
 
-    			each_1_anchor = empty();
+    			each_1_anchor = empty$1();
     		},
     		m: function mount(target, anchor) {
     			for (let i = 0; i < each_blocks.length; i += 1) {
@@ -43974,7 +44065,7 @@ var app = (function () {
     		key: key_2,
     		first: null,
     		c: function create() {
-    			first = empty();
+    			first = empty$1();
     			create_component(cartelement.$$.fragment);
     			this.first = first;
     		},
@@ -44030,7 +44121,7 @@ var app = (function () {
     		key: key_1,
     		first: null,
     		c: function create() {
-    			first = empty();
+    			first = empty$1();
     			create_component(cartelement.$$.fragment);
     			this.first = first;
     		},
@@ -44120,9 +44211,9 @@ var app = (function () {
     			div = element("div");
     			h3 = element("h3");
     			h3.textContent = "Вие нямате никакви артикули в количката";
-    			add_location(h3, file$2, 33, 25, 1012);
+    			add_location(h3, file$2, 33, 25, 979);
     			attr_dev(div, "class", "my-card svelte-yfmwo5");
-    			add_location(div, file$2, 33, 4, 991);
+    			add_location(div, file$2, 33, 4, 958);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, div, anchor);
@@ -44189,9 +44280,9 @@ var app = (function () {
     			t1 = space();
     			div0 = element("div");
     			attr_dev(div0, "class", "padding-box svelte-yfmwo5");
-    			add_location(div0, file$2, 37, 2, 1111);
+    			add_location(div0, file$2, 37, 2, 1074);
     			attr_dev(div1, "class", "svelte-yfmwo5");
-    			add_location(div1, file$2, 18, 0, 596);
+    			add_location(div1, file$2, 18, 0, 578);
     		},
     		l: function claim(nodes) {
     			throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
@@ -44351,8 +44442,8 @@ var app = (function () {
     	}
     }
 
-    /* src\Footer.svelte generated by Svelte v3.46.2 */
-    const file$1 = "src\\Footer.svelte";
+    /* src/Footer.svelte generated by Svelte v3.46.2 */
+    const file$1 = "src/Footer.svelte";
 
     // (9:18) <Button secondary>
     function create_default_slot$2(ctx) {
@@ -44422,14 +44513,14 @@ var app = (function () {
     			a = element("a");
     			create_component(button.$$.fragment);
     			attr_dev(span0, "class", "count-items-in-cart svelte-1tc55bk");
-    			add_location(span0, file$1, 6, 2, 142);
+    			add_location(span0, file$1, 6, 2, 136);
     			attr_dev(span1, "class", "total-price svelte-1tc55bk");
-    			add_location(span1, file$1, 7, 2, 221);
+    			add_location(span1, file$1, 7, 2, 214);
     			attr_dev(a, "href", "/cart");
     			attr_dev(a, "class", "svelte-1tc55bk");
-    			add_location(a, file$1, 8, 2, 292);
+    			add_location(a, file$1, 8, 2, 284);
     			attr_dev(footer, "class", "svelte-1tc55bk");
-    			add_location(footer, file$1, 5, 0, 130);
+    			add_location(footer, file$1, 5, 0, 125);
     		},
     		l: function claim(nodes) {
     			throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
@@ -44524,10 +44615,10 @@ var app = (function () {
     	}
     }
 
-    /* src\LoginRegister.svelte generated by Svelte v3.46.2 */
+    /* src/LoginRegister.svelte generated by Svelte v3.46.2 */
 
     const { console: console_1$1 } = globals;
-    const file = "src\\LoginRegister.svelte";
+    const file = "src/LoginRegister.svelte";
 
     // (79:2) {#if errorMessage}
     function create_if_block_1(ctx) {
@@ -44539,7 +44630,7 @@ var app = (function () {
     			div = element("div");
     			t = text(/*errorMessage*/ ctx[1]);
     			attr_dev(div, "class", "error svelte-1u372l8");
-    			add_location(div, file, 79, 4, 2130);
+    			add_location(div, file, 79, 4, 2051);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, div, anchor);
@@ -44564,7 +44655,7 @@ var app = (function () {
     	return block;
     }
 
-    // (82:2) <Button      color="danger"      class="mt-3"      on:click={() => {        conditions[menu].func(auth, email, password);      }}>
+    // (82:2) <Button     color="danger"     class="mt-3"     on:click={() => {       conditions[menu].func(auth, email, password);     }}>
     function create_default_slot$1(ctx) {
     	let t_value = /*conditions*/ ctx[4][/*menu*/ ctx[0]].text + "";
     	let t;
@@ -44588,7 +44679,7 @@ var app = (function () {
     		block,
     		id: create_default_slot$1.name,
     		type: "slot",
-    		source: "(82:2) <Button      color=\\\"danger\\\"      class=\\\"mt-3\\\"      on:click={() => {        conditions[menu].func(auth, email, password);      }}>",
+    		source: "(82:2) <Button     color=\\\"danger\\\"     class=\\\"mt-3\\\"     on:click={() => {       conditions[menu].func(auth, email, password);     }}>",
     		ctx
     	});
 
@@ -44609,10 +44700,10 @@ var app = (function () {
     			a = element("a");
     			a.textContent = "Вход";
     			attr_dev(span, "class", "svelte-1u372l8");
-    			add_location(span, file, 91, 4, 2431);
+    			add_location(span, file, 91, 4, 2340);
     			attr_dev(a, "href", "/login");
     			attr_dev(a, "class", "svelte-1u372l8");
-    			add_location(a, file, 92, 4, 2474);
+    			add_location(a, file, 92, 4, 2382);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, span, anchor);
@@ -44647,7 +44738,7 @@ var app = (function () {
     			a.textContent = "Регистрация";
     			attr_dev(a, "href", "/register");
     			attr_dev(a, "class", "svelte-1u372l8");
-    			add_location(a, file, 89, 4, 2379);
+    			add_location(a, file, 89, 4, 2290);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, a, anchor);
@@ -44755,22 +44846,22 @@ var app = (function () {
     			attr_dev(a, "id", "home-button");
     			attr_dev(a, "href", "/");
     			attr_dev(a, "class", "svelte-1u372l8");
-    			add_location(a, file, 64, 2, 1775);
+    			add_location(a, file, 64, 2, 1711);
     			attr_dev(div0, "id", "icon");
     			attr_dev(div0, "class", "svelte-1u372l8");
-    			add_location(div0, file, 65, 2, 1823);
+    			add_location(div0, file, 65, 2, 1758);
     			attr_dev(h1, "class", "svelte-1u372l8");
-    			add_location(h1, file, 68, 2, 1887);
-    			add_location(h20, file, 70, 4, 1934);
+    			add_location(h1, file, 68, 2, 1819);
+    			add_location(h20, file, 70, 4, 1864);
     			attr_dev(input0, "type", "text");
-    			add_location(input0, file, 71, 4, 1956);
-    			add_location(div1, file, 69, 2, 1923);
-    			add_location(h21, file, 74, 4, 2021);
+    			add_location(input0, file, 71, 4, 1885);
+    			add_location(div1, file, 69, 2, 1854);
+    			add_location(h21, file, 74, 4, 1947);
     			attr_dev(input1, "type", "password");
-    			add_location(input1, file, 75, 4, 2043);
-    			add_location(div2, file, 73, 2, 2010);
+    			add_location(input1, file, 75, 4, 1968);
+    			add_location(div2, file, 73, 2, 1937);
     			attr_dev(main, "class", "svelte-1u372l8");
-    			add_location(main, file, 63, 0, 1765);
+    			add_location(main, file, 63, 0, 1702);
     		},
     		l: function claim(nodes) {
     			throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
@@ -45036,7 +45127,7 @@ var app = (function () {
     	}
     }
 
-    /* src\App.svelte generated by Svelte v3.46.2 */
+    /* src/App.svelte generated by Svelte v3.46.2 */
 
     const { console: console_1 } = globals;
 
@@ -45044,27 +45135,27 @@ var app = (function () {
     function create_default_slot_5(ctx) {
     	let header;
     	let t0;
-    	let tweak;
+    	let catalog;
     	let t1;
     	let footer;
     	let current;
     	header = new Header({ $$inline: true });
     	header.$on("userSignOut", /*userSignOut*/ ctx[0]);
-    	tweak = new Tweak({ $$inline: true });
+    	catalog = new Catalog({ $$inline: true });
     	footer = new Footer({ $$inline: true });
 
     	const block = {
     		c: function create() {
     			create_component(header.$$.fragment);
     			t0 = space();
-    			create_component(tweak.$$.fragment);
+    			create_component(catalog.$$.fragment);
     			t1 = space();
     			create_component(footer.$$.fragment);
     		},
     		m: function mount(target, anchor) {
     			mount_component(header, target, anchor);
     			insert_dev(target, t0, anchor);
-    			mount_component(tweak, target, anchor);
+    			mount_component(catalog, target, anchor);
     			insert_dev(target, t1, anchor);
     			mount_component(footer, target, anchor);
     			current = true;
@@ -45073,20 +45164,20 @@ var app = (function () {
     		i: function intro(local) {
     			if (current) return;
     			transition_in(header.$$.fragment, local);
-    			transition_in(tweak.$$.fragment, local);
+    			transition_in(catalog.$$.fragment, local);
     			transition_in(footer.$$.fragment, local);
     			current = true;
     		},
     		o: function outro(local) {
     			transition_out(header.$$.fragment, local);
-    			transition_out(tweak.$$.fragment, local);
+    			transition_out(catalog.$$.fragment, local);
     			transition_out(footer.$$.fragment, local);
     			current = false;
     		},
     		d: function destroy(detaching) {
     			destroy_component(header, detaching);
     			if (detaching) detach_dev(t0);
-    			destroy_component(tweak, detaching);
+    			destroy_component(catalog, detaching);
     			if (detaching) detach_dev(t1);
     			destroy_component(footer, detaching);
     		}

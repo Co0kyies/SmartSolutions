@@ -1,10 +1,7 @@
 <script>
   import BarChart from "./BarChart.svelte";
   import Loader from "./Loader.svelte";
-  import { salesBarData, allMonthsArray } from "./store";
-  import { app } from "./firabase.js";
   import { getDatabase, get, ref, child, set } from "firebase/database";
-  let loading = true;
 
   // async function loadData() {
   //   if ($salesBarData) {
@@ -59,12 +56,7 @@
 </script>
 
 <main>
-  <!-- {#if loading}
-    <Loader />
-  {:else}
-    <BarChart data={chartData} />
-  {/if} -->
-  {#await get(child(ref(getDatabase()), "BI/allSalesBar"))}
+  {#await get(child(ref(getDatabase()), "BI/allSales"))}
     <Loader />
   {:then snapshot}
     <BarChart data={snapshot.val()} />

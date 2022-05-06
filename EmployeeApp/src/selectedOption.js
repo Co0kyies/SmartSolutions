@@ -1,11 +1,11 @@
 let kant = document.querySelector("#opt-kant");
-let cut = document.querySelector("#opt-cut");
+let holes = document.querySelector("#opt-holes");
 let selected = kant;
 function selectedHasChanged() {
   kant.style.color = "black";
   kant.style.backgroundColor = "white";
-  cut.style.color = "black";
-  cut.style.backgroundColor = "white";
+  holes.style.color = "black";
+  holes.style.backgroundColor = "white";
 
   selected.style.color = "#a50202";
   selected.style.backgroundColor = "#bdbdbd";
@@ -16,17 +16,17 @@ kant.addEventListener("click", () => {
   selectedHasChanged();
 });
 
-cut.addEventListener("click", () => {
-  selected = cut;
+holes.addEventListener("click", () => {
+  selected = holes;
   selectedHasChanged();
 });
 
 selectedHasChanged();
 
 export function currentlySelected() {
-  if ((selected = kant)) {
-    return "kant";
+  if (selected == kant) {
+    return "/kant";
   } else {
-    return "cut";
+    return "/holes";
   }
 }
