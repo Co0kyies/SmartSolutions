@@ -12,11 +12,11 @@
     tweakSecondDoor,
     tweakThirdDoor,
     tweakSelectedCount,
-    pricePerCubic,
   } from "../../store";
   import { ref, push, set } from "firebase/database";
   import { writeToDatabase, database } from "../../firebase";
   import { Button } from "sveltestrap";
+  import { calcPrice } from "./calcPrice";
   function addToCart() {
     const newEntry = {
       model: "aura " + $tweak + ($tweak == 1 ? " врата" : " врати"),
@@ -31,17 +31,6 @@
       numberOfDoors: $tweak,
     };
 
-    function calcPrice() {
-      return Number(
-        (
-          newEntry.height *
-          newEntry.widht *
-          newEntry.depth *
-          // newEntry.count *
-          $pricePerCubic
-        ).toFixed(2)
-      );
-    }
     if ($authUser) {
       //If the user is authorized
 
@@ -61,7 +50,12 @@
           "/inBasket/" +
           newEntryRef.key +
           "/pricePerUnit/",
-        calcPrice()
+        calcPrice(
+          $tweakSelectedHeight,
+          $tweakSelectedWidth,
+          $tweakSelectedDepth,
+          $tweakSelectedCount
+        )
       );
       let oldPrice = $user.totalPrice;
       writeToDatabase(
@@ -84,6 +78,7 @@
 
     // window.location.replace("/");
   }
+  console.log(tweakSelectedDepth);
 </script>
 
 <Button
