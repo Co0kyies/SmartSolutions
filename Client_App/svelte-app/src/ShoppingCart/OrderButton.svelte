@@ -499,6 +499,10 @@
           }
         });
       }
+      function removeElementsFromeCart() {
+        writeToDatabase(`website/${$userId}/inBasket`, null);
+      }
+      removeElementsFromeCart();
     } else {
       alert("Само регистрираните потребители могат да правят поръчки");
     }
